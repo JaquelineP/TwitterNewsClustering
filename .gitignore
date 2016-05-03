@@ -1,3 +1,7 @@
+# Data files
+/sample_stream.json
+/twitter.db
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
