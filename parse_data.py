@@ -4,6 +4,7 @@ import os
 import streaming
 from queue import Queue
 from threading import Thread
+import time
 
 tweets_data_path = 'sample_stream_sample.json'
 database_name = "twitter.db"
@@ -13,6 +14,7 @@ class DataParser():
     count = 0
     prepared_sql = ""
     q = None
+    start_time = 0
 
     def initialize_connection(self):
         try:
@@ -96,13 +98,14 @@ class DataParser():
         self.insert_tweet_data(cur, tweet)
         self.count += 1
         if self.count % 100 == 0:
-            print("inserted %i tweets" % self.count)
+            print("inserted %i tweets (%.2f/s)" % (self.count, self.count / (time.time() - self.start_time)))
             conn.commit()
 
     def start_streaming(self):
         t = Thread(target=self.read_data_from_queue)
         t.daemon = True
         t.start()
+        self.start_time = time.time()
         streaming.start_streaming(self.data_callback)
 
 def main():
