@@ -2,6 +2,8 @@ import json
 import sqlite3
 import os
 import streaming
+from queue import Queue
+from threading import Thread
 
 tweets_data_path = 'sample_stream_sample.json'
 database_name = "twitter.db"
@@ -9,9 +11,8 @@ dirty = ["delete", "status_withheld", "limit"]
 
 class DataParser():
     count = 0
-    cur = None
-    conn = None
     prepared_sql = ""
+    q = None
 
     def initialize_connection(self):
         try:
@@ -19,13 +20,14 @@ class DataParser():
         except FileNotFoundError:
             pass
         create_db = (not os.path.isfile(database_name))
-        self.conn = sqlite3.connect(database_name)
-        self.cur = self.conn.cursor()
-        self.cur.execute("PRAGMA synchronous = OFF")
-        self.cur.execute("PRAGMA journal_mode = MEMORY")
-        self.initialize_table(create_db)
+        conn = sqlite3.connect(database_name)
+        cur = conn.cursor()
+        cur.execute("PRAGMA synchronous = OFF")
+        cur.execute("PRAGMA journal_mode = MEMORY")
+        self.initialize_table(conn, cur, create_db)
+        self.q = Queue()
 
-    def initialize_table(self, create_db):
+    def initialize_table(self, conn, cur, create_db):
         output_columns = ["id", "text", "user_id", "hashtags", "urls", "lang"]
         int_columns = (0, 2)
 
@@ -38,16 +40,11 @@ class DataParser():
             for i, column in enumerate(output_columns):
                 sql += "%s %s, " % (column, "INT" if i in int_columns else "VARCHAR(255)")
             sql += "PRIMARY KEY(id))"
-            self.cur.execute(sql)
-            self.conn.commit()
+            cur.execute(sql)
+            conn.commit()
 
-    def insert_tweet_data(self, tweet):
+    def insert_tweet_data(self, cur, tweet):
         text = tweet.get("text")
-        try:
-            if "id" not in tweet:
-                print(tweet)
-        except:
-            pass
         twitter_id = tweet["id"]
         user_id = tweet.get("user", {}).get("id")
         # geo = tweet.get("geo")
@@ -61,7 +58,6 @@ class DataParser():
                 if entities_result[entity] is None:
                     entities_result[entity] = ""
                 entities_result[entity] += e.get(entity_keys[index], "") + ","
-
             if entities_result[entity]:
                 entities_result[entity] = entities_result[entity][:-1]
 
@@ -69,11 +65,24 @@ class DataParser():
 
         # insert into db
         try:
-            self.cur.execute(prepared_sql, (twitter_id, text, user_id, entities_result["hashtags"], entities_result["urls"], lang))
+            cur.execute(self.prepared_sql, (twitter_id, text, user_id, entities_result["hashtags"], entities_result["urls"], lang))
         except sqlite3.IntegrityError:
             pass
 
-    def process_data(self, data):
+    def read_data_from_queue(self):
+        conn = sqlite3.connect(database_name)
+        cur = conn.cursor() 
+        cur.execute("PRAGMA synchronous = OFF")
+        cur.execute("PRAGMA journal_mode = MEMORY")
+        while True:
+            item = self.q.get()
+            self.q.task_done()
+            self.process_data(conn, cur, item)
+
+    def data_callback(self, data):
+        self.q.put(data)
+
+    def process_data(self, conn, cur, data):
         tweet = json.loads(data)
 
         found_dirty = False
@@ -84,14 +93,17 @@ class DataParser():
         if found_dirty:
             return
 
-        insert_tweet_data(tweet)
+        self.insert_tweet_data(cur, tweet)
         self.count += 1
-        if self.count % 1000 == 0:
-            print("Count %d" % self.count)
-            self.conn.commit()
+        if self.count % 100 == 0:
+            print("inserted %i tweets" % self.count)
+            conn.commit()
 
     def start_streaming(self):
-        streaming.start_streaming(self.process_data)
+        t = Thread(target=self.read_data_from_queue)
+        t.daemon = True
+        t.start()
+        streaming.start_streaming(self.data_callback)
 
 def main():
     data_parser = DataParser()
