@@ -18,10 +18,6 @@ class DataParser():
     start_time = 0
 
     def initialize_connection(self):
-        try:
-            os.remove(database_name)
-        except FileNotFoundError:
-            pass
         create_db = (not os.path.isfile(database_name))
         conn = sqlite3.connect(database_name)
         cur = conn.cursor()
@@ -31,8 +27,8 @@ class DataParser():
         self.q = Queue()
 
     def initialize_table(self, conn, cur, create_db):
-        output_columns = ["id", "text", "user_id", "hashtags", "urls", "lang", "favorites", "retweets", "timestamp"]
-        int_columns = (0, 2, 6, 7, 8)
+        output_columns = ["id", "text", "user_id", "user_name", "followers_count", "hashtags", "urls", "timestamp", "mentions"]
+        int_columns = (0, 2, 4, 7)
 
         # generate insert statement
         self.prepared_sql = ("INSERT INTO tweets VALUES (" + "?, " * (len(output_columns)))[:-2] + ")"
@@ -47,13 +43,8 @@ class DataParser():
             conn.commit()
 
     def insert_tweet_data(self, cur, tweet):
-        text = tweet.get("text")
-        twitter_id = tweet["id"]
-        user_id = tweet.get("user", {}).get("id")
-        # geo = tweet.get("geo")
-        # hash tags are dicts
-        entities = ["hashtags", "urls"]
-        entity_keys = ["text", "expanded_url"]
+        entities = ["hashtags", "urls", "user_mentions"]
+        entity_keys = ["text", "expanded_url", "screen_name"]
         entities_result = {}
         for index, entity in enumerate(entities):
             entities_result[entity] = None
@@ -64,12 +55,19 @@ class DataParser():
             if entities_result[entity]:
                 entities_result[entity] = entities_result[entity][:-1]
 
-        lang = tweet.get("lang")
-
         # insert into db
         try:
-            cur.execute(self.prepared_sql, (twitter_id, text, user_id, entities_result["hashtags"], entities_result["urls"], 
-                lang, tweet["favorite_count"], tweet["retweet_count"], tweet["timestamp_ms"]))
+            cur.execute(self.prepared_sql, (
+                tweet["id"],
+                tweet.get("text"),
+                tweet.get("user", {}).get("id"),
+                tweet.get("user", {}).get("screen_name"),
+                tweet.get("user", {}).get("followers_count"),
+                entities_result["hashtags"],
+                entities_result["urls"], 
+                tweet["timestamp_ms"],
+                entities_result["user_mentions"]
+            ))
         except sqlite3.IntegrityError:
             pass
 
@@ -110,6 +108,9 @@ class DataParser():
                 paper = line[line.find("@") + 1:].strip()
                 result.append(paper)
         with open("keywords.txt", "r") as f:
+            for line in f:
+                result.append(line)
+        with open("domains.txt", "r") as f:
             for line in f:
                 result.append(line)
         return result

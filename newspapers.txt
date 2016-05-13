@@ -39,3 +39,16 @@ European News Agency - @Eunewsagency
 UEFA com - @UEFAcom
 TwitterSport - @TwitterSports
 UTV - @utv
+ITV news - @itvnews
+Particle News - @particle_news
+The Telegraph - @telegraph
+CBS News - @CBSNews
+NASA - @NASA
+ABC - @ABC
+The Guradian - @guardian
+Times Now - @TimesNow
+NBC News - @NBCNews
+Yahoo News - @YahooNews
+MSNBC - @MSNBC
+Daily Mirror - @DailyMirror
+VICE - @vicenews
