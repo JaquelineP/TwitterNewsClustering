@@ -9,6 +9,7 @@ import time
 tweets_data_path = 'sample_stream_sample.json'
 database_name = "twitter.db"
 dirty = ["delete", "status_withheld", "limit"]
+OUTPUT_THRESHOLD = 10
 
 class DataParser():
     count = 0
@@ -30,8 +31,8 @@ class DataParser():
         self.q = Queue()
 
     def initialize_table(self, conn, cur, create_db):
-        output_columns = ["id", "text", "user_id", "hashtags", "urls", "lang"]
-        int_columns = (0, 2)
+        output_columns = ["id", "text", "user_id", "hashtags", "urls", "lang", "favorites", "retweets", "timestamp"]
+        int_columns = (0, 2, 6, 7, 8)
 
         # generate insert statement
         self.prepared_sql = ("INSERT INTO tweets VALUES (" + "?, " * (len(output_columns)))[:-2] + ")"
@@ -67,7 +68,8 @@ class DataParser():
 
         # insert into db
         try:
-            cur.execute(self.prepared_sql, (twitter_id, text, user_id, entities_result["hashtags"], entities_result["urls"], lang))
+            cur.execute(self.prepared_sql, (twitter_id, text, user_id, entities_result["hashtags"], entities_result["urls"], 
+                lang, tweet["favorite_count"], tweet["retweet_count"], tweet["timestamp_ms"]))
         except sqlite3.IntegrityError:
             pass
 
@@ -97,16 +99,27 @@ class DataParser():
 
         self.insert_tweet_data(cur, tweet)
         self.count += 1
-        if self.count % 100 == 0:
+        if self.count % OUTPUT_THRESHOLD == 0:
             print("inserted %i tweets (%.2f/s)" % (self.count, self.count / (time.time() - self.start_time)))
             conn.commit()
+
+    def read_newspapers(self):
+        result = []
+        with open("newspapers.txt", "r") as f:
+            for line in f:
+                paper = line[line.find("@") + 1:].strip()
+                result.append(paper)
+        with open("keywords.txt", "r") as f:
+            for line in f:
+                result.append(line)
+        return result
 
     def start_streaming(self):
         t = Thread(target=self.read_data_from_queue)
         t.daemon = True
         t.start()
         self.start_time = time.time()
-        streaming.start_streaming(self.data_callback)
+        streaming.start_streaming(self.data_callback, self.read_newspapers())
 
 def main():
     data_parser = DataParser()

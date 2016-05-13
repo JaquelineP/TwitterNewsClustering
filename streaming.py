@@ -26,11 +26,11 @@ class StdOutListener(StreamListener):
     def on_error(self, status):
         print("Twitter API error: %i" % status)
 
-def start_streaming(callback):
+def start_streaming(callback, track_array):
     l = StdOutListener(callback)
     auth = OAuthHandler(l.consumer_key, l.consumer_secret)
     auth.set_access_token(l.access_token, l.access_token_secret)
 
     stream = Stream(auth, l)
     #stream.sample()
-    stream.filter(languages=["en"], track=["a", "the", "i", "you", "u"])
+    stream.filter(languages=["en"], track=track_array, async=True)
