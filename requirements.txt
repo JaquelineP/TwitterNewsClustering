@@ -1,0 +1,4 @@
+tweepy==3.5.0
+numpy==1.11.0
+scipy==0.17.1
+scikit-learn==0.17.1
