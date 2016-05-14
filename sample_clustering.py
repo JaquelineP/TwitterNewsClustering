@@ -4,6 +4,7 @@ import re
 from sklearn import cluster, datasets
 from sklearn.feature_extraction.text import TfidfVectorizer
 import numpy as np
+from prettytable import PrettyTable
 
 
 database_name = "twitter.db"
@@ -72,7 +73,7 @@ def cluster_data():
     vectors = vectorizer.fit_transform(tweet_texts)
 
     # run k means
-    k_means = cluster.KMeans(n_clusters=30)
+    k_means = cluster.KMeans(n_clusters=75)
     k_means.fit(vectors)
     k_means_labels = k_means.labels_
     k_means_cluster_centers = k_means.cluster_centers_
@@ -89,9 +90,22 @@ def cluster_data():
 
     conn.commit()
 
-    cur.execute("SELECT id, text, cluster_id FROM tweets")
-    print(cur.fetchall())
+    # get cluster counts
+    sql = '''
+      SELECT cluster_id as "Cluster ID", COUNT(*) "Cluster Size"
+      FROM tweets
+      GROUP BY cluster_id
+      ORDER BY COUNT(*) DESC
+      LIMIT 10
+    '''
+
+    out_table = PrettyTable(["Cluster ID", "Cluster Size"])
+    for row in cur.execute(sql):
+        out_table.add_row(row)
+
+    print(out_table)
     conn.close()
+
 
 
 def get_tf_idf_vectors(tweets):
