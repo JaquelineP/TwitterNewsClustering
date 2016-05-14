@@ -2,8 +2,12 @@ import sqlite3
 import nltk
 import re
 from sklearn import cluster, datasets
+from sklearn.feature_extraction.text import TfidfVectorizer
+import numpy as np
+import matplotlib.pyplot as plt
 
-database_name = "twitter_sample.db"
+
+database_name = "twitter.db"
 unique_words = set()
 
 def main():
@@ -47,5 +51,42 @@ def main():
     k_means.fit(data)
     print(k_means.labels_)
 
+def clean_tweet(tweet):
+    return re.sub(r"(?:https?\://)\S+", "", tweet)
+
+def cluster_data():
+
+    # fetch and clean tweets from DB
+    conn = sqlite3.connect(database_name)
+    cur = conn.cursor()
+    cur.execute("SELECT text FROM tweets")
+    tweets = [clean_tweet(tweet_row[0]) for tweet_row in cur.fetchall()]
+
+
+    # create feature vector per tweet
+    vectorizer = TfidfVectorizer(max_df=0.5,
+                                 min_df=2, stop_words='english',
+                                 use_idf=True)
+
+    vectors = vectorizer.fit_transform(tweets)
+
+    # run k means
+    k_means = cluster.KMeans(n_clusters=10)
+    k_means.fit(vectors)
+    k_means_labels = k_means.labels_
+    k_means_cluster_centers = k_means.cluster_centers_
+    k_means_labels_unique = np.unique(k_means_labels)
+
+    print(k_means.labels_)
+
+
+def get_tf_idf_vectors(tweets):
+    vectorizer = TfidfVectorizer(max_df=0.5,
+                                 min_df=2, stop_words='english',
+                                 use_idf=True)
+
+
+    return vectorizer.fit_transform(tweets)
+
 if __name__ == "__main__":
-    main()
+    cluster_data()
