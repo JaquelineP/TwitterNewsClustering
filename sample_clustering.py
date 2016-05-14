@@ -68,39 +68,51 @@ class Clustering:
 
         return tweet_ids, tweet_texts
 
-    def run_k_means(self, tweet_ids, vectors):
-
-        k_means = cluster.KMeans(n_clusters=75)
-        k_means.fit(vectors)
+    def update_cluster_labels(self, column_name, ids_with_labels):
 
         cur = self.conn.cursor()
+        update_sql = '''
+          UPDATE tweets
+          SET %s=?
+          WHERE id=?
+        ''' % (column_name,)
 
-        # update cluster_ids according to k-means
-        for label, tweet_id in zip(k_means.labels_, tweet_ids):
-            update_sql = '''
-              UPDATE tweets
-              SET cluster_id=?
-              WHERE id=?
-            '''
+        for tweet_id, label in ids_with_labels:
             cur.execute(update_sql, (int(label), tweet_id))
 
         self.conn.commit()
 
         # get cluster counts
         sql = '''
-          SELECT cluster_id as "Cluster ID", COUNT(*) "Cluster Size"
+          SELECT %s as "Cluster ID", COUNT(*) "Cluster Size"
           FROM tweets
-          GROUP BY cluster_id
+          GROUP BY %s
           ORDER BY COUNT(*) DESC
           LIMIT 10
-        '''
+        ''' % (column_name, column_name)
 
         out_table = PrettyTable(["Cluster ID", "Cluster Size"])
         for row in cur.execute(sql):
             out_table.add_row(row)
 
         print(out_table)
-        self.conn.close()
+
+    def run_k_means(self, tweet_ids, vectors):
+
+        k_means = cluster.KMeans(n_clusters=75)
+        k_means.fit(vectors)
+
+        print("K-Means Clustering")
+        self.update_cluster_labels("k_means_cluster_id", zip(tweet_ids, k_means.labels_))
+
+    def run_DBSCAN(self, tweet_ids, vectors):
+        dbscan = cluster.DBSCAN(eps=0.7, min_samples=5, metric='euclidean')
+        dbscan.fit(vectors)
+
+        print("DBSCAN Clustering")
+        self.update_cluster_labels("dbscan_cluster_id", zip(tweet_ids, dbscan.labels_))
+
+
 
     def run_algorithms(self):
 
@@ -113,9 +125,11 @@ class Clustering:
 
         vectors = vectorizer.fit_transform(tweet_texts)
 
-        self.run_k_means(vectors)
+        self.run_k_means(tweet_ids, vectors)
+        self.run_DBSCAN(tweet_ids, vectors)
 
 
 if __name__ == "__main__":
     clustering = Clustering()
     clustering.run_algorithms()
+    clustering.conn.close()

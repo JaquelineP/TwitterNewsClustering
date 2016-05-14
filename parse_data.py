@@ -27,8 +27,8 @@ class DataParser():
         self.q = Queue()
 
     def initialize_table(self, conn, cur, create_db):
-        output_columns = ["id", "text", "user_id", "user_name", "followers_count", "hashtags", "urls", "timestamp", "mentions", "cluster_id"]
-        int_columns = (0, 2, 4, 7, 9)
+        output_columns = ["id", "text", "user_id", "user_name", "followers_count", "hashtags", "urls", "timestamp", "mentions", "k_means_cluster_id","dbscan_cluster_id" ]
+        int_columns = (0, 2, 4, 7, 9, 10)
 
         # generate insert statement
         self.prepared_sql = ("INSERT INTO tweets VALUES (" + "?, " * (len(output_columns)))[:-2] + ")"
@@ -67,6 +67,7 @@ class DataParser():
                 entities_result["urls"], 
                 tweet["timestamp_ms"],
                 entities_result["user_mentions"],
+                None,
                 None
             ))
         except sqlite3.IntegrityError:
