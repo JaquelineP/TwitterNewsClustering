@@ -4,7 +4,6 @@ import re
 from sklearn import cluster, datasets
 from sklearn.feature_extraction.text import TfidfVectorizer
 import numpy as np
-import matplotlib.pyplot as plt
 
 
 database_name = "twitter.db"
@@ -59,8 +58,10 @@ def cluster_data():
     # fetch and clean tweets from DB
     conn = sqlite3.connect(database_name)
     cur = conn.cursor()
-    cur.execute("SELECT text FROM tweets")
-    tweets = [clean_tweet(tweet_row[0]) for tweet_row in cur.fetchall()]
+    cur.execute("SELECT id, text FROM tweets")
+    tweet_rows = cur.fetchall()
+    tweet_ids = [tweet_row[0] for tweet_row in tweet_rows ]
+    tweet_texts = [clean_tweet(tweet_row[1]) for tweet_row in tweet_rows ]
 
 
     # create feature vector per tweet
@@ -68,22 +69,35 @@ def cluster_data():
                                  min_df=2, stop_words='english',
                                  use_idf=True)
 
-    vectors = vectorizer.fit_transform(tweets)
+    vectors = vectorizer.fit_transform(tweet_texts)
 
     # run k means
-    k_means = cluster.KMeans(n_clusters=10)
+    k_means = cluster.KMeans(n_clusters=30)
     k_means.fit(vectors)
     k_means_labels = k_means.labels_
     k_means_cluster_centers = k_means.cluster_centers_
     k_means_labels_unique = np.unique(k_means_labels)
 
-    print(k_means.labels_)
+    # update cluster_ids according to k-means
+    for label, tweet_id in zip(k_means.labels_, tweet_ids):
+        update_sql = '''
+          UPDATE tweets
+          SET cluster_id=?
+          WHERE id=?
+        '''
+        cur.execute(update_sql, (int(label), tweet_id))
+
+    conn.commit()
+
+    cur.execute("SELECT id, text, cluster_id FROM tweets")
+    print(cur.fetchall())
+    conn.close()
 
 
 def get_tf_idf_vectors(tweets):
     vectorizer = TfidfVectorizer(max_df=0.5,
                                  min_df=2, stop_words='english',
-                                 use_idf=True)
+                                 use_idf=True, smooth_idf=True)
 
 
     return vectorizer.fit_transform(tweets)
