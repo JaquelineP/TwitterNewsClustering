@@ -9,6 +9,7 @@ from prettytable import PrettyTable
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import Normalizer
 from collections import Counter
+import matplotlib.pyplot as plt
 
 database_name = "twitter.db"
 unique_words = set()
@@ -104,25 +105,7 @@ class Clustering:
 
         print(out_table)
 
-    def run_k_means(self, tweet_ids, vectors):
-
-        # PCA as alternative???
-        # vectors_dense = vectors.todense()
-        # reduced_data = PCA(n_components=3).fit_transform(vectors_dense)
-
-        # reduce dimensionality of vectors with LSA
-        svd = TruncatedSVD(n_components=2)
-        normalizer = Normalizer(copy=False)
-        lsa = make_pipeline(svd, normalizer)
-        reduced_data = lsa.fit_transform(vectors)
-
-        # run k-means
-        k_means = cluster.KMeans(n_clusters=75)
-        k_means.fit(reduced_data)
-
-        print("K-Means Clustering")
-        self.update_db_cluster_labels("k_means_cluster_id",
-                                      zip(tweet_ids, k_means.labels_))
+    def print_words(self, svd, k_means):
 
         #
         # retrieve most often occurring words of centroids of biggest clusters
@@ -150,6 +133,44 @@ class Clustering:
             for index in centroid_word_indices[:10]:
                 print('[term, tf-idf]: %s, %s' % (terms[index], centroids_sorted[i][index]))
             print()
+
+    def plot(self, k_means, reduced_data):
+
+        plt.figure(1)
+        plt.clf()
+        plt.scatter(reduced_data[:, 0], reduced_data[:, 1], c=k_means.labels_)
+        min_x = -2
+        max_x = 2
+        min_y = -2
+        max_y = 2
+        plt.axis([min_x, max_x, min_y, max_y])
+        plt.show()
+
+
+    def run_k_means(self, tweet_ids, vectors):
+
+        # PCA as alternative???
+        # vectors_dense = vectors.todense()
+        # reduced_data = PCA(n_components=3).fit_transform(vectors_dense)
+
+        # reduce dimensionality of vectors with LSA
+        svd = TruncatedSVD(n_components=2)
+        normalizer = Normalizer(copy=False)
+        lsa = make_pipeline(svd, normalizer)
+        reduced_data = lsa.fit_transform(vectors)
+
+        # run k-means
+        k_means = cluster.KMeans(n_clusters=75)
+        k_means.fit(reduced_data)
+
+        print("K-Means Clustering")
+        self.update_db_cluster_labels("k_means_cluster_id",
+                                      zip(tweet_ids, k_means.labels_))
+
+        self.print_words(svd, k_means)
+        self.plot(k_means, reduced_data)
+
+
 
     def run_DBSCAN(self, tweet_ids, vectors):
 
