@@ -2,10 +2,12 @@ import sqlite3
 import nltk
 import re
 from sklearn import cluster, datasets
+from sklearn.decomposition import PCA, TruncatedSVD
 from sklearn.feature_extraction.text import TfidfVectorizer
 import numpy as np
 from prettytable import PrettyTable
-
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import Normalizer
 
 database_name = "twitter.db"
 unique_words = set()
@@ -106,13 +108,25 @@ class Clustering:
         self.update_cluster_labels("k_means_cluster_id", zip(tweet_ids, k_means.labels_))
 
     def run_DBSCAN(self, tweet_ids, vectors):
-        dbscan = cluster.DBSCAN(eps=0.7, min_samples=5, metric='euclidean')
+        dbscan = cluster.DBSCAN(eps=0.3, min_samples=5, metric='euclidean')
         dbscan.fit(vectors)
 
         print("DBSCAN Clustering")
         self.update_cluster_labels("dbscan_cluster_id", zip(tweet_ids, dbscan.labels_))
 
+    def get_dimension_reduced_data(self, vectors_sparse):
 
+        # reduce dimensions with Principal Component Analysis (PCA)
+
+        # vectors_dense = vectors_sparse.todense()
+        # reduced_data = PCA(n_components=3).fit_transform(vectors_dense)
+
+        # reduce dimensions with Latent Semantic Analysis (LSA)
+        svd = TruncatedSVD(n_components=2)
+        normalizer = Normalizer(copy=False)
+        lsa = make_pipeline(svd, normalizer)
+
+        return lsa.fit_transform(vectors_sparse)
 
     def run_algorithms(self):
 
@@ -122,14 +136,16 @@ class Clustering:
         vectorizer = TfidfVectorizer(max_df=0.5,
                                      min_df=2, stop_words='english',
                                      use_idf=True)
+        vectors_sparse = vectorizer.fit_transform(tweet_texts)
 
-        vectors = vectorizer.fit_transform(tweet_texts)
+        # reduce dimensionality of data
+        reduced_data = self.get_dimension_reduced_data(vectors_sparse)
 
-        self.run_k_means(tweet_ids, vectors)
-        self.run_DBSCAN(tweet_ids, vectors)
+        # run clustering algorithms
+        self.run_k_means(tweet_ids, reduced_data)
+        self.run_DBSCAN(tweet_ids, reduced_data)
 
 
 if __name__ == "__main__":
     clustering = Clustering()
     clustering.run_algorithms()
-    clustering.conn.close()
