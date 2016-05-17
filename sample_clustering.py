@@ -21,6 +21,7 @@ class Clustering:
         self.vectorizer = TfidfVectorizer(max_df=0.5,
                                           min_df=2, stop_words='english',
                                           use_idf=True)
+        self.stemmer = nltk.PorterStemmer()
 
     # def main(self):
     #     global unique_words
@@ -62,8 +63,18 @@ class Clustering:
     #     k_means.fit(data)
     #     print(k_means.labels_)
 
+    def preprocess_tweet(self, tweet):
+        return self.stem_text(self.clean_tweet(tweet))
+
     def clean_tweet(self, tweet):
-        return re.sub(r"(?:https?\://)\S+", "", tweet)
+        # filter out URLs and mentions (@[...])
+        return re.sub(r"(https?\S+| htt?p?s?…$|@\S+)", "", tweet)
+
+    def stem_text(self, text):
+        result = ""
+        for word in text.split():
+            result += self.stemmer.stem(word) + " "
+        return result[:-1]
 
     def get_tweet_ids_with_text(self):
 
@@ -71,7 +82,7 @@ class Clustering:
         cur.execute("SELECT id, text FROM tweets")
         tweet_rows = cur.fetchall()
         tweet_ids = [tweet_row[0] for tweet_row in tweet_rows]
-        tweet_texts = [self.clean_tweet(tweet_row[1]) for tweet_row in
+        tweet_texts = [self.preprocess_tweet(tweet_row[1]) for tweet_row in
                        tweet_rows]
 
         return tweet_ids, tweet_texts
