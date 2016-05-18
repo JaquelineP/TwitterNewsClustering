@@ -12,7 +12,7 @@ from collections import Counter
 import matplotlib.pyplot as plt
 
 database_name = "twitter.db"
-CLUSTER_SIZE = 75
+CLUSTER_COUNT = 75
 
 class Clustering:
     def __init__(self):
@@ -35,28 +35,22 @@ class Clustering:
             result += self.stemmer.stem(word) + " "
         return result[:-1]
 
-    def get_tweet_ids_with_text(self, remove_duplicates = True):
+    def get_tweet_ids_with_text(self):
 
         cur = self.conn.cursor()
         cur.execute("SELECT id, text, k_means_cluster_id FROM tweets")
-        tweet_rows = cur.fetchall()
-        tweet_ids = [tweet_row[0] for tweet_row in tweet_rows]
-        tweet_texts = [self.preprocess_tweet(tweet_row[1]) for tweet_row in
-                       tweet_rows]
-        cluster_ids = [tweet_row[2] for tweet_row in tweet_rows]
-
-        if not remove_duplicates:
-            return tweet_ids, tweet_texts, cluster_ids
-
-        stripped_texts, stripped_ids, stripped_cluster_ids = [], [], []
-        tweet_set = set(tweet_texts)
-        for tweet in tweet_set:
-            index = tweet_texts.index(tweet)
-            stripped_texts.append(tweet)
-            stripped_ids.append(tweet_ids[index])
-            stripped_cluster_ids.append(cluster_ids[index])
-
-        return stripped_ids, stripped_texts, stripped_cluster_ids
+        tweet_ids, tweet_texts, cluster_ids, mapped_ids = [], [], [], []
+        for row in cur:
+            tweet = self.preprocess_tweet(row[1])
+            if tweet in tweet_texts:
+                index = tweet_texts.index(tweet)
+                mapped_ids[index].append(row[0])
+            else:
+                tweet_ids.append(row[0])
+                tweet_texts.append(tweet)
+                cluster_ids.append(row[2])
+                mapped_ids.append([])
+        return tweet_ids, tweet_texts, cluster_ids, mapped_ids
 
     def update_db_cluster_labels(self, column_name, ids_with_labels):
 
@@ -131,15 +125,15 @@ class Clustering:
 
     def evaluate_clusters(self):
 
-        clusters = [[] for i in range(CLUSTER_SIZE)]
-        _, tweet_texts, cluster_ids = self.get_tweet_ids_with_text()
+        clusters = [[] for i in range(CLUSTER_COUNT)]
+        _, tweet_texts, cluster_ids, _ = self.get_tweet_ids_with_text()
         for i in range(len(tweet_texts)):
             if (not tweet_texts[i] in clusters[cluster_ids[i]]):
                 clusters[cluster_ids[i]].append(tweet_texts[i])
 
         cluster_vectorizer = TfidfVectorizer(stop_words='english', use_idf=True)
         tweet_vectorizer = TfidfVectorizer(stop_words='english', use_idf=True)
-        for i in range(CLUSTER_SIZE):
+        for i in range(CLUSTER_COUNT):
             score = 0
             cluster_vectorizer.fit(clusters[i])            
             cluster_size = len(clusters[i])
@@ -152,18 +146,14 @@ class Clustering:
 
     def fill_missing_cluster_ids(self):
 
-        tweet_ids, tweet_texts, cluster_ids = self.get_tweet_ids_with_text(False)
-        cluster_mapping = {}
-        for i, tweet in enumerate(tweet_texts):
-            if cluster_ids[i] is not None:
-                cluster_mapping[tweet] = cluster_ids[i]
-
         cur = self.conn.cursor()
         sql = "UPDATE tweets SET k_means_cluster_id = ? WHERE id = ?"
 
-        for i, tweet in enumerate(tweet_texts):
-            if cluster_ids[i] is None:
-                cur.execute(sql, (cluster_mapping[tweet], tweet_ids[i]))
+        _, _, cluster_ids, mapped_ids = self.get_tweet_ids_with_text()
+        for i, cluster in enumerate(cluster_ids):
+            for mapped_id in mapped_ids[i]:
+                cur.execute(sql, (cluster, mapped_id))
+
         self.conn.commit()
 
     def run_k_means(self, tweet_ids, vectors):
@@ -179,7 +169,7 @@ class Clustering:
         reduced_data = lsa.fit_transform(vectors)
 
         # run k-means
-        k_means = cluster.KMeans(n_clusters=CLUSTER_SIZE)
+        k_means = cluster.KMeans(n_clusters=CLUSTER_COUNT)
         #k_means.fit(reduced_data)
         k_means.fit(vectors)
 
@@ -207,7 +197,7 @@ class Clustering:
 
     def run_algorithms(self):
 
-        tweet_ids, tweet_texts, _ = self.get_tweet_ids_with_text()
+        tweet_ids, tweet_texts, _, _ = self.get_tweet_ids_with_text()
 
         # create feature vector per tweet
         vectors_sparse = self.vectorizer.fit_transform(tweet_texts)
