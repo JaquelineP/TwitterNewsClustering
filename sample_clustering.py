@@ -1,6 +1,8 @@
 import sqlite3
 import nltk
 import re
+import operator
+from collections import Counter
 from sklearn import cluster, datasets
 from sklearn.decomposition import PCA, TruncatedSVD
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -132,18 +134,42 @@ class Clustering:
             clusters[cluster_ids[i]].append(tweet_texts[i])
             mapped_count[cluster_ids[i]] += len(mapped_tweets[i])
 
-        cluster_vectorizer = TfidfVectorizer(stop_words='english', use_idf=True)
         tweet_vectorizer = TfidfVectorizer(stop_words='english', use_idf=True)
+        scores = {}
         for i in range(CLUSTER_COUNT):
-            similarity = 0
-            cluster_vectorizer.fit(clusters[i])            
+            words = []
+            score = 0
             cluster_size = len(clusters[i])
             for j in range(cluster_size):
-                tweet_vectorizer.fit([clusters[i][j]])
-                similarity += len(tweet_vectorizer.get_feature_names()) / len(cluster_vectorizer.get_feature_names())
-            similarity /= cluster_size
+                try:
+                    tweet_vectorizer.fit([clusters[i][j]])
+                except ValueError:
+                    # tweet contains only stopwords
+                    continue
+                words += tweet_vectorizer.get_feature_names()
+            word_count = len(words)
+            words = Counter(words)
+
+            similarity = 0
+            for j in range(cluster_size):
+                try:
+                    tweet_vectorizer.fit([clusters[i][j]])
+                except ValueError:
+                    continue
+                for word in tweet_vectorizer.get_feature_names():
+                    similarity += words[word]
+                similarity /= word_count
+                score += similarity
+
+            score /= cluster_size
             if cluster_size > 1:
-                print("id: %i, similarity: %.2f, length: %i, mapped: %i" % (i, similarity, cluster_size, mapped_count[i]))
+                scores[i] = score
+
+        scores = sorted(scores.items(), key=operator.itemgetter(1))
+        scores.reverse()
+        for i in range(CLUSTER_COUNT // 4):
+            print("id: %i, score: %.2f, size: %i, duplicates: %i" 
+                % (scores[i][0], scores[i][1], len(clusters[scores[i][0]]), mapped_count[scores[i][0]]))
 
     def fill_missing_cluster_ids(self):
 
