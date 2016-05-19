@@ -126,23 +126,24 @@ class Clustering:
     def evaluate_clusters(self):
 
         clusters = [[] for i in range(CLUSTER_COUNT)]
-        _, tweet_texts, cluster_ids, _ = self.get_tweet_ids_with_text()
+        mapped_count = [0] * CLUSTER_COUNT
+        _, tweet_texts, cluster_ids, mapped_tweets = self.get_tweet_ids_with_text()
         for i in range(len(tweet_texts)):
-            if (not tweet_texts[i] in clusters[cluster_ids[i]]):
-                clusters[cluster_ids[i]].append(tweet_texts[i])
+            clusters[cluster_ids[i]].append(tweet_texts[i])
+            mapped_count[cluster_ids[i]] += len(mapped_tweets[i])
 
         cluster_vectorizer = TfidfVectorizer(stop_words='english', use_idf=True)
         tweet_vectorizer = TfidfVectorizer(stop_words='english', use_idf=True)
         for i in range(CLUSTER_COUNT):
-            score = 0
+            similarity = 0
             cluster_vectorizer.fit(clusters[i])            
             cluster_size = len(clusters[i])
             for j in range(cluster_size):
                 tweet_vectorizer.fit([clusters[i][j]])
-                score += len(tweet_vectorizer.get_feature_names()) / len(cluster_vectorizer.get_feature_names())
-            score /= cluster_size
+                similarity += len(tweet_vectorizer.get_feature_names()) / len(cluster_vectorizer.get_feature_names())
+            similarity /= cluster_size
             if cluster_size > 1:
-                print("Id: %i, Score: %.2f, Length: %i" % (i, score, cluster_size))
+                print("id: %i, similarity: %.2f, length: %i, mapped: %i" % (i, similarity, cluster_size, mapped_count[i]))
 
     def fill_missing_cluster_ids(self):
 
