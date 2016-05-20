@@ -3,7 +3,7 @@ import nltk
 import re
 import operator
 from collections import Counter
-from sklearn import cluster, datasets
+from sklearn import cluster, datasets, metrics
 from sklearn.decomposition import PCA, TruncatedSVD
 from sklearn.feature_extraction.text import TfidfVectorizer
 import numpy as np
@@ -196,9 +196,13 @@ class Clustering:
         reduced_data = lsa.fit_transform(vectors)
 
         # run k-means
-        k_means = cluster.KMeans(n_clusters=CLUSTER_COUNT)
-        #k_means.fit(reduced_data)
-        k_means.fit(vectors)
+        k = 0
+        while True:
+            k_means = cluster.KMeans(n_clusters=k)
+            #k_means.fit(reduced_data)
+            labels = k_means.fit(vectors)
+            score = metrics.silhouette_score(vectors, labels)
+            k += 1
 
         print("K-Means Clustering")
         self.update_db_cluster_labels("k_means_cluster_id",
