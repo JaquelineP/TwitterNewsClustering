@@ -9,15 +9,17 @@ import time
 tweets_data_path = 'sample_stream_sample.json'
 database_name = "twitter.db"
 dirty = ["delete", "status_withheld", "limit"]
-OUTPUT_THRESHOLD = 10
+OUTPUT_THRESHOLD = 100
 
 class DataParser():
     count = 0
     prepared_sql = ""
     q = None
     start_time = 0
+    file = None
 
     def initialize_connection(self):
+        self.file = open('twitter.dat', 'w+')
         create_db = (not os.path.isfile(database_name))
         conn = sqlite3.connect(database_name)
         cur = conn.cursor()
@@ -55,6 +57,17 @@ class DataParser():
             if entities_result[entity]:
                 entities_result[entity] = entities_result[entity][:-1]
 
+        data = {
+            "id": tweet["id"],
+            "text" : tweet.get("text"),
+            "user_id": tweet.get("user", {}).get("id"),
+            "user_name": tweet.get("user", {}).get("screen_name"),
+            "followers_count": tweet.get("user", {}).get("followers_count"),
+            "hashtags": entities_result["hashtags"],
+            "urls": entities_result["urls"],
+            "timestamp": tweet["timestamp_ms"],
+            "user_mentions" : entities_result["user_mentions"]
+        }
         # insert into db
         try:
             cur.execute(self.prepared_sql, (
@@ -64,12 +77,13 @@ class DataParser():
                 tweet.get("user", {}).get("screen_name"),
                 tweet.get("user", {}).get("followers_count"),
                 entities_result["hashtags"],
-                entities_result["urls"], 
+                entities_result["urls"],
                 tweet["timestamp_ms"],
                 entities_result["user_mentions"],
                 None,
                 None
             ))
+            self.file.write(json.dumps(data)+"\n")
         except sqlite3.IntegrityError:
             pass
 
@@ -102,6 +116,7 @@ class DataParser():
         if self.count % OUTPUT_THRESHOLD == 0:
             print("inserted %i tweets (%.2f/s)" % (self.count, self.count / (time.time() - self.start_time)))
             conn.commit()
+            self.file.flush()
 
     def read_newspapers(self):
         result = []
