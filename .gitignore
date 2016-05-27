@@ -65,3 +65,10 @@ target/
 #Ipython Notebook
 .ipynb_checkpoints
 config.txt
+
+# Intellij
+.idea/
+/out/
+*.iml
+
+
