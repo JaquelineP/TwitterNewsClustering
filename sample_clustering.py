@@ -3,7 +3,7 @@ import nltk
 import re
 import operator
 from collections import Counter
-from sklearn import cluster, datasets
+from sklearn import cluster, datasets, metrics
 from sklearn.decomposition import PCA, TruncatedSVD
 from sklearn.feature_extraction.text import TfidfVectorizer
 import numpy as np
@@ -12,6 +12,7 @@ from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import Normalizer
 from collections import Counter
 import matplotlib.pyplot as plt
+from evaluation import HashtagEvaluation
 
 database_name = "twitter.db"
 CLUSTER_COUNT = 75
@@ -40,8 +41,8 @@ class Clustering:
     def get_tweet_ids_with_text(self):
 
         cur = self.conn.cursor()
-        cur.execute("SELECT id, text, k_means_cluster_id FROM tweets")
-        tweet_ids, tweet_texts, cluster_ids, mapped_ids = [], [], [], []
+        cur.execute("SELECT id, text, k_means_cluster_id, hashtags FROM tweets where hashtags is not null limit 1000")
+        tweet_ids, tweet_texts, cluster_ids, mapped_ids, hashtags = [], [], [], [], []
         for row in cur:
             tweet = self.preprocess_tweet(row[1])
             if tweet in tweet_texts:
@@ -52,7 +53,8 @@ class Clustering:
                 tweet_texts.append(tweet)
                 cluster_ids.append(row[2])
                 mapped_ids.append([])
-        return tweet_ids, tweet_texts, cluster_ids, mapped_ids
+                hashtags.append(row[3])
+        return tweet_ids, tweet_texts, cluster_ids, mapped_ids, hashtags
 
     def update_db_cluster_labels(self, column_name, ids_with_labels):
 
@@ -129,7 +131,7 @@ class Clustering:
 
         clusters = [[] for i in range(CLUSTER_COUNT)]
         mapped_count = [0] * CLUSTER_COUNT
-        _, tweet_texts, cluster_ids, mapped_tweets = self.get_tweet_ids_with_text()
+        _, tweet_texts, cluster_ids, mapped_tweets, _ = self.get_tweet_ids_with_text()
         for i in range(len(tweet_texts)):
             clusters[cluster_ids[i]].append(tweet_texts[i])
             mapped_count[cluster_ids[i]] += len(mapped_tweets[i])
@@ -176,7 +178,7 @@ class Clustering:
         cur = self.conn.cursor()
         sql = "UPDATE tweets SET k_means_cluster_id = ? WHERE id = ?"
 
-        _, _, cluster_ids, mapped_ids = self.get_tweet_ids_with_text()
+        _, _, cluster_ids, mapped_ids, _ = self.get_tweet_ids_with_text()
         for i, cluster in enumerate(cluster_ids):
             for mapped_id in mapped_ids[i]:
                 cur.execute(sql, (cluster, mapped_id))
@@ -196,9 +198,16 @@ class Clustering:
         reduced_data = lsa.fit_transform(vectors)
 
         # run k-means
+        #k = 10
+        """while True:
+            k_means = cluster.KMeans(n_clusters=k)
+            #k_means.fit(reduced_data)
+            labels = k_means.fit_predict(vectors)
+            score = metrics.silhouette_score(vectors, labels)
+            k +=50
+            print("%i %.2f" %(k, score))"""
         k_means = cluster.KMeans(n_clusters=CLUSTER_COUNT)
-        #k_means.fit(reduced_data)
-        k_means.fit(vectors)
+        labels = k_means.fit(vectors)
 
         print("K-Means Clustering")
         self.update_db_cluster_labels("k_means_cluster_id",
@@ -206,6 +215,8 @@ class Clustering:
 
         self.print_words(svd, k_means)
         self.evaluate_clusters()
+        _, _, cluster_ids, _, hashtags = self.get_tweet_ids_with_text()
+        HashtagEvaluation().eval(cluster_ids, hashtags)
         self.fill_missing_cluster_ids()
         #self.plot(k_means, reduced_data)
 
@@ -224,7 +235,7 @@ class Clustering:
 
     def run_algorithms(self):
 
-        tweet_ids, tweet_texts, _, _ = self.get_tweet_ids_with_text()
+        tweet_ids, tweet_texts, _, _, _ = self.get_tweet_ids_with_text()
 
         # create feature vector per tweet
         vectors_sparse = self.vectorizer.fit_transform(tweet_texts)
