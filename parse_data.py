@@ -19,7 +19,7 @@ class DataParser():
     file = None
 
     def initialize_connection(self):
-        self.file = open('twitter.dat', 'w+')
+        self.file = open('twitter.dat', 'a')
         create_db = (not os.path.isfile(database_name))
         conn = sqlite3.connect(database_name)
         cur = conn.cursor()
