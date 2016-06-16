@@ -15,7 +15,7 @@ object NLPPipeline {
     .setOutputCol("filtered")
 
   val hashingTF = new HashingTF()
-    .setNumFeatures(1000)
+    .setNumFeatures(StreamingKMeansExample.VectorDimensions)
 
     .setInputCol(remover.getOutputCol)
     .setOutputCol("tf")
@@ -43,7 +43,7 @@ object NLPPipeline {
     val vectorsDataFrame = pipelineModel.transform(dataframe)
 
     // convert back to RDD
-    val assembled: RDD[Vector] = vectorsDataFrame.map(row => row.getAs[Vector]("tf").toDense)
+    val assembled: RDD[Vector] = vectorsDataFrame.map(row => row.getAs[Vector]("idf").toDense)
     assembled
   }
 

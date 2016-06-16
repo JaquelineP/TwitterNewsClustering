@@ -8,6 +8,8 @@ import org.apache.spark.streaming.{Seconds, StreamingContext}
 
 object StreamingKMeansExample {
 
+  val VectorDimensions = 1000
+
   def main(args: Array[String]) {
 
     // initialize spark streaming context
@@ -28,19 +30,26 @@ object StreamingKMeansExample {
       NLPPipeline.preprocess(tweetRdd)
     })
 
-//    tweets.foreachRDD(tweetRdd => {
-//      tweetRdd.foreach(singleTweet => {
-//        println(singleTweet.getText())
-//      })
-//    })
-
-
+    // perform kMeans
     val model = new StreamingKMeans()
-      .setK(3)
+      .setK(100)
       .setDecayFactor(1.0)
-      .setRandomCenters(4, 0.0)
+      .setRandomCenters(VectorDimensions, 1.0)
     model.trainOn(vectors)
-    model.latestModel().clusterCenters.foreach(println)
+
+    var assignments = Array.emptyIntArray
+    val assignmentStream = model.predictOn(vectors)
+    assignmentStream.foreachRDD(rdd => assignments ++= rdd.collect())
+
+    var tweetArray = Array.empty[String]
+    //textStream.foreachRDD(rdd => tweetArray ++= rdd.collect())
+    textStream.foreachRDD(rdd => rdd.foreach(tweet => tweetArray +: tweet))
+
+    println("size: " + tweetArray.size)
+
+    (tweetArray, assignments).zipped.foreach(
+      (tweet, assignment) => println("cluster mapping: " + assignment + ":   " + tweet)
+    )
 
     ssc.start()
     ssc.awaitTermination()
