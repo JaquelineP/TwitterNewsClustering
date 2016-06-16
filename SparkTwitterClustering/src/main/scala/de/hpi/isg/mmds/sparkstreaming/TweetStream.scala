@@ -42,7 +42,7 @@ object TweetStream {
       tuple
     }
 
-    val rdd = ssc.sparkContext.textFile(getClass.getResource("twitter.dat").getPath)
+    val rdd = ssc.sparkContext.textFile(getClass.getResource("/twitter.dat").getPath)
     val rddQueue = new mutable.Queue[RDD[(Long, String)]]()
 
     val batchCount = min((rdd.count() / TweetsPerBatch).toInt, MaxBatchCount)
