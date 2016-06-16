@@ -4,6 +4,8 @@ import org.apache.spark.mllib.linalg._
 import org.apache.spark.streaming.dstream.DStream
 import org.apache.spark.streaming.twitter._
 import org.apache.spark.streaming.{Seconds, StreamingContext}
+import org.apache.log4j.LogManager
+import org.apache.log4j.Level
 
 
 object StreamingKMeansExample {
@@ -16,6 +18,9 @@ object StreamingKMeansExample {
     val batchDuration = 10
     val conf = new SparkConf().setMaster("local[5]").setAppName("StreamingKMeansExample")
     val ssc = new StreamingContext(conf, Seconds(batchDuration))
+
+    // set log level
+    LogManager.getRootLogger.setLevel(Level.ERROR)
 
     // Twitter Authentication
     TwitterAuthentication.readCredentials()
