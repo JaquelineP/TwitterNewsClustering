@@ -1,8 +1,10 @@
+package de.hpi.isg.mmds.sparkstreaming
+
 import org.apache.spark.ml.Pipeline
-import org.apache.spark.ml.feature.{IDF, HashingTF, StopWordsRemover, Tokenizer}
+import org.apache.spark.ml.feature.{HashingTF, IDF, StopWordsRemover, Tokenizer}
+import org.apache.spark.mllib.linalg._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SQLContext
-import org.apache.spark.mllib.linalg._
 
 object NLPPipeline {
 

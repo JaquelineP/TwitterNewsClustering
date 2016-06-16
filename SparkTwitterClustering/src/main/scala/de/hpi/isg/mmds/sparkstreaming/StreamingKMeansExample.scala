@@ -1,11 +1,12 @@
+package de.hpi.isg.mmds.sparkstreaming
+
+import org.apache.log4j.{Level, LogManager}
 import org.apache.spark.SparkConf
 import org.apache.spark.mllib.clustering.StreamingKMeans
 import org.apache.spark.mllib.linalg._
 import org.apache.spark.streaming.dstream.DStream
 import org.apache.spark.streaming.twitter._
 import org.apache.spark.streaming.{Seconds, StreamingContext}
-import org.apache.log4j.LogManager
-import org.apache.log4j.Level
 
 
 object StreamingKMeansExample {

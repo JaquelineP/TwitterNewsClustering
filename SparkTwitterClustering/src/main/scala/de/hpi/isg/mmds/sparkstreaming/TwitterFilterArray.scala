@@ -1,4 +1,4 @@
-import java.io.File
+package de.hpi.isg.mmds.sparkstreaming
 
 object TwitterFilterArray {
 
