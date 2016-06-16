@@ -1,5 +1,5 @@
 import org.apache.spark.ml.Pipeline
-import org.apache.spark.ml.feature.{IDF, HashingTF, StopWordsRemover, Tokenizer}
+import org.apache.spark.ml.feature.{IDF, HashingTF, StopWordsRemover, Tokenizer, TweetSanitizer}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.mllib.linalg._
@@ -10,8 +10,12 @@ object NLPPipeline {
     .setInputCol("text")
     .setOutputCol("words")
 
-  val remover = new StopWordsRemover()
+  val sanitizer = new TweetSanitizer()
     .setInputCol(tokenizer.getOutputCol)
+    .setOutputCol("sanitizedWords")
+
+  val remover = new StopWordsRemover()
+    .setInputCol(sanitizer.getOutputCol)
     .setOutputCol("filtered")
 
   val hashingTF = new HashingTF()
@@ -26,7 +30,7 @@ object NLPPipeline {
 
   //TODO: add stemming here
   val pipeline = new Pipeline()
-    .setStages(Array(tokenizer, remover, hashingTF, inverseDocumentFreq))
+    .setStages(Array(tokenizer, sanitizer, remover, hashingTF, inverseDocumentFreq))
 
 
   def preprocess(tweets: RDD[(Long, String)]): RDD[(Long, Vector)] = {
