@@ -29,32 +29,32 @@ object StreamingKMeansExample {
     val tweets = TwitterUtils.createStream(ssc, None, TwitterFilterArray.getFilterArray())
     val englishTweets = tweets.filter(_.getLang() == "en")
 
-    // transform DStream[Status] to DStream[Vector]
-    val textStream: DStream[String] = englishTweets.map(tweet => tweet.getText())
-    val vectors: DStream[Vector] = textStream.transform(tweetRdd => {
+    val tweetIdTextStream: DStream[(Long, String)] = englishTweets.map(tweet => {
+      (tweet.getId(),tweet.getText())
+    })
+
+    // preprocess tweets with NLP pipeline
+    val tweetIdVectorsStream: DStream[(Long, Vector)] = tweetIdTextStream.transform(tweetRdd => {
       NLPPipeline.preprocess(tweetRdd)
     })
+
+    val vectorsStream: DStream[Vector] = tweetIdVectorsStream.map{ case (tweetId, vector) => vector }
+
 
     // perform kMeans
     val model = new StreamingKMeans()
       .setK(100)
       .setDecayFactor(1.0)
       .setRandomCenters(VectorDimensions, 1.0)
-    model.trainOn(vectors)
+      model.trainOn(vectorsStream)
 
-    var assignments = Array.emptyIntArray
-    val assignmentStream = model.predictOn(vectors)
-    assignmentStream.foreachRDD(rdd => assignments ++= rdd.collect())
+    val tweetIdClusterIdStream = model.predictOnValues(tweetIdVectorsStream)
+    val tweetIdWithTextAndClusterIdStream = tweetIdClusterIdStream.join(tweetIdTextStream)
 
-    var tweetArray = Array.empty[String]
-    //textStream.foreachRDD(rdd => tweetArray ++= rdd.collect())
-    textStream.foreachRDD(rdd => rdd.foreach(tweet => tweetArray +: tweet))
+    tweetIdWithTextAndClusterIdStream.foreachRDD(rdd => {
+      rdd.foreach{ case(tweetId, (clusterId, text)) => println(s"tweetId: $tweetId clusterId: $clusterId, text: $text")}
+    })
 
-    println("size: " + tweetArray.size)
-
-    (tweetArray, assignments).zipped.foreach(
-      (tweet, assignment) => println("cluster mapping: " + assignment + ":   " + tweet)
-    )
 
     ssc.start()
     ssc.awaitTermination()

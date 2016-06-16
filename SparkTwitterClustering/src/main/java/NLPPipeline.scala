@@ -29,21 +29,21 @@ object NLPPipeline {
     .setStages(Array(tokenizer, remover, hashingTF, inverseDocumentFreq))
 
 
-  def preprocess(tweets: RDD[String]): RDD[Vector] = {
+  def preprocess(tweets: RDD[(Long, String)]): RDD[(Long, Vector)] = {
 
     // convert RDD to dataframe
     val sqlContext = new SQLContext(tweets.sparkContext)
     import sqlContext.implicits._
 
     // the new column's name is called 'text' --> tokenizer needs it
-    val dataframe = tweets.toDF("text")
+    val dataframe = tweets.toDF("key", "text")
 
     // apply NLP Pipeline
     val pipelineModel = pipeline.fit(dataframe)
     val vectorsDataFrame = pipelineModel.transform(dataframe)
 
     // convert back to RDD
-    val assembled: RDD[Vector] = vectorsDataFrame.map(row => row.getAs[Vector]("idf").toDense)
+    val assembled: RDD[(Long, Vector)] = vectorsDataFrame.map(row => (row.getAs[Long]("key"), row.getAs[Vector]("idf").toDense))
     assembled
   }
 
