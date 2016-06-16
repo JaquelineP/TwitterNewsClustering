@@ -19,10 +19,11 @@ object StreamingKMeansExample {
     TwitterAuthentication.readCredentials()
 
     // create Twitter Stream
-    val tweets = TwitterUtils.createStream(ssc, None)
+    val tweets = TwitterUtils.createStream(ssc, None, TwitterFilterArray.getFilterArray())
+    val englishTweets = tweets.filter(_.getLang() == "en")
 
     // transform DStream[Status] to DStream[Vector]
-    val textStream: DStream[String] = tweets.map(tweet => tweet.getText())
+    val textStream: DStream[String] = englishTweets.map(tweet => tweet.getText())
     val vectors: DStream[Vector] = textStream.transform(tweetRdd => {
       NLPPipeline.preprocess(tweetRdd)
     })
