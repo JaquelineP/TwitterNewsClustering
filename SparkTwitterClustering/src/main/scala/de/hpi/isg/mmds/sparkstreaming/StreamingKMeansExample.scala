@@ -4,6 +4,7 @@ import org.apache.log4j.{Level, LogManager}
 import org.apache.spark.SparkConf
 import org.apache.spark.mllib.clustering.StreamingKMeans
 import org.apache.spark.mllib.linalg._
+import org.apache.spark.sql.SQLContext
 import org.apache.spark.streaming.dstream.DStream
 import org.apache.spark.streaming.twitter._
 import org.apache.spark.streaming.{Seconds, StreamingContext}
@@ -17,7 +18,7 @@ object StreamingKMeansExample {
 
     // initialize spark streaming context
     val batchDuration = 10
-    val conf = new SparkConf().setMaster("local[5]").setAppName("StreamingKMeansExample")
+    val conf = new SparkConf().setMaster("local[*]").setAppName("StreamingKMeansExample")
     val ssc = new StreamingContext(conf, Seconds(batchDuration))
 
     // set log level
@@ -52,9 +53,46 @@ object StreamingKMeansExample {
     val tweetIdClusterIdStream = model.predictOnValues(tweetIdVectorsStream)
     val tweetIdWithTextAndClusterIdStream = tweetIdClusterIdStream.join(tweetIdTextStream)
 
-    tweetIdWithTextAndClusterIdStream.foreachRDD(rdd => {
-      rdd.foreach{ case(tweetId, (clusterId, text)) => println(s"tweetId: $tweetId clusterId: $clusterId, text: $text")}
+    val clusterIdCount = tweetIdClusterIdStream.map {
+      case (tweetId, clusterId) => (clusterId, 1)
+    }
+      .reduceByKey(_+_)
+
+
+    clusterIdCount.foreachRDD(rdd => {
+      val batchSize = rdd.map {
+        case (clusterId, count) => count
+      }.reduce(_+_)
+
+      println(s"New Batch: $batchSize")
+      rdd.foreach {
+        case (clusterId, count) => {
+          println( s"clusterId: $clusterId count: $count")
+        }
+      }
+      println("-------------------------")
     })
+
+
+
+
+//    tweetIdWithTextAndClusterIdStream.foreachRDD(rdd => {
+//      rdd.foreach{
+//        case(tweetId, (clusterId, text)) => {
+//          println(s"tweetId: $tweetId clusterId: $clusterId, text: $text")
+//        }
+//      }
+//
+//      // convert RDD to dataframe
+//      val sqlContext = new SQLContext(rdd.sparkContext)
+//      import sqlContext.implicits._
+//
+//      val clusterResults = rdd.toDF()
+//      clusterResults.registerTempTable("clusterresults")
+//
+//      //      val my_df = sqlContext.sql("SELECT * from clusterresults LIMIT 5")
+//      //      my_df.collect().foreach(println)
+//    })
 
 
     ssc.start()
