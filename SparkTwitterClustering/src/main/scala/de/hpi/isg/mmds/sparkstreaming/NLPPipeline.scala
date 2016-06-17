@@ -22,7 +22,6 @@ object NLPPipeline {
 
   val hashingTF = new HashingTF()
     .setNumFeatures(StreamingKMeansExample.VectorDimensions)
-
     .setInputCol(remover.getOutputCol)
     .setOutputCol("tf")
 

@@ -17,19 +17,23 @@ object StreamingKMeansExample {
   def main(args: Array[String]) {
 
     // initialize spark streaming context
-    val batchDuration = 10
     val conf = new SparkConf().setMaster("local[*]").setAppName("StreamingKMeansExample")
-    val ssc = new StreamingContext(conf, Seconds(batchDuration))
+    val ssc = new StreamingContext(conf, Seconds(BatchDuration))
 
     // set log level
     LogManager.getRootLogger.setLevel(Level.ERROR)
 
     // start streaming from specified source (startFromAPI: API; startFromDisk: file on disc)
-    val tweetIdTextStream: DStream[(Long, String)] = TweetStream.startFromAPI(ssc)
+//    val tweetIdTextStream: DStream[(Long, String)] = TweetStream.startFromAPI(ssc)
+    val tweetIdTextStream: DStream[(Long, String)] = TweetStream.startFromDisk(ssc)
 
     // preprocess tweets with NLP pipeline
     val tweetIdVectorsStream: DStream[(Long, Vector)] = tweetIdTextStream.transform(tweetRdd => {
-      NLPPipeline.preprocess(tweetRdd)
+
+      if (!tweetRdd.isEmpty())
+        NLPPipeline.preprocess(tweetRdd)
+      else
+        tweetRdd.sparkContext.emptyRDD[(Long, Vector)]
     })
 
     val vectorsStream: DStream[Vector] = tweetIdVectorsStream.map{ case (tweetId, vector) => vector }
@@ -51,17 +55,19 @@ object StreamingKMeansExample {
 
 
     clusterIdCount.foreachRDD(rdd => {
-      val batchSize = rdd.map {
-        case (clusterId, count) => count
-      }.reduce(_+_)
 
-      println(s"New Batch: $batchSize")
-      rdd.foreach {
-        case (clusterId, count) => {
-          println( s"clusterId: $clusterId count: $count")
+      if (!rdd.isEmpty()) {
+
+        val batchSize = rdd.map {
+          case (clusterId, count) => count
+        }.reduce(_+_)
+
+        println(s"New Batch: $batchSize")
+        rdd.foreach {
+          case (clusterId, count) => println( s"clusterId: $clusterId count: $count")
         }
+        println("-------------------------")
       }
-      println("-------------------------")
     })
 
     println("")
