@@ -72,3 +72,4 @@ config.txt
 *.iml
 
 
+SparkTwitterClustering/src/main/resources/twitter.dat

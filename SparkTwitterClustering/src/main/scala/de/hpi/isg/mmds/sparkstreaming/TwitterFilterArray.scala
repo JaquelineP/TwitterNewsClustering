@@ -2,7 +2,7 @@ package de.hpi.isg.mmds.sparkstreaming
 
 object TwitterFilterArray {
 
-  def getFilterArray(): Array[String] = {
+  def getFilterArray: Array[String] = {
 
     var stream = getClass.getResourceAsStream("/domains.txt")
     var result = scala.io.Source.fromInputStream(stream).getLines().toArray
