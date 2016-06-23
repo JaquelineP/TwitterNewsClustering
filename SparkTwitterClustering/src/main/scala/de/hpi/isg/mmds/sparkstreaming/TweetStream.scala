@@ -27,7 +27,7 @@ object TweetStream {
     stream
   }
 
-  def startFromDisk(ssc: StreamingContext): DStream[(Long, String)] = {
+  def startFromDisk(ssc: StreamingContext, inputPath: String): DStream[(Long, String)] = {
 
     val TweetsPerBatch = 100    // amount of tweets per batch, one batch will be processed per time interval specified for streaming
     val MaxBatchCount = 10      // amount of batches that are prepared; streaming will crash after all prepared batch are processed!
@@ -42,7 +42,7 @@ object TweetStream {
       tuple
     }
 
-    val rdd = ssc.sparkContext.textFile(getClass.getResource("/twitter.dat").getPath)
+    val rdd = ssc.sparkContext.textFile(inputPath)
     val rddQueue = new mutable.Queue[RDD[(Long, String)]]()
 
     val batchCount = min((rdd.count() / TweetsPerBatch).toInt, MaxBatchCount)

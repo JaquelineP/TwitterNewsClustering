@@ -16,6 +16,14 @@ object StreamingKMeansExample {
 
   def main(args: Array[String]) {
 
+
+    if (args.isEmpty) {
+      println("Usage: scala <main class> <input URL>")
+      sys.exit(1)
+    }
+
+    var inputPath = args(0)
+
     // initialize spark streaming context
     val conf = new SparkConf().setMaster("local[*]").setAppName("StreamingKMeansExample")
     val ssc = new StreamingContext(conf, Seconds(BatchDuration))
@@ -25,7 +33,7 @@ object StreamingKMeansExample {
 
     // start streaming from specified source (startFromAPI: API; startFromDisk: file on disc)
 //    val tweetIdTextStream: DStream[(Long, String)] = TweetStream.startFromAPI(ssc)
-    val tweetIdTextStream: DStream[(Long, String)] = TweetStream.startFromDisk(ssc)
+    val tweetIdTextStream: DStream[(Long, String)] = TweetStream.startFromDisk(ssc, inputPath)
 
     // preprocess tweets with NLP pipeline
     val tweetIdVectorsStream: DStream[(Long, Vector)] = tweetIdTextStream.transform(tweetRdd => {
