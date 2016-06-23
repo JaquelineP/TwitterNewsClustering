@@ -44,13 +44,14 @@ object TweetStream {
 
     val rdd = ssc.sparkContext.textFile(inputPath)
     val rddQueue = new mutable.Queue[RDD[(Long, String)]]()
-
     val batchCount = min((rdd.count() / TweetsPerBatch).toInt, MaxBatchCount)
-    for (batch <- 1 to batchCount) {
-      println(s"Preparing batch $batch / $batchCount")
-      val tweetTuples = rdd.take(TweetsPerBatch).map(tweet => tupleFromJSONString(tweet))
-      rddQueue.enqueue(ssc.sparkContext.makeRDD[(Long, String)](tweetTuples))
-    }
+
+    println(s"Preparing $batchCount batches.")
+    val tweetTuples = rdd.take(TweetsPerBatch * batchCount).map(tweet => tupleFromJSONString(tweet))
+    val iterator = tweetTuples.grouped(TweetsPerBatch)
+    while (iterator.hasNext) rddQueue.enqueue(ssc.sparkContext.makeRDD[(Long, String)](iterator.next()))
+    println("Finished preparing batches.")
+
     ssc.queueStream(rddQueue, oneAtATime = true)
   }
 
