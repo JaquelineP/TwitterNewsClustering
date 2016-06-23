@@ -2,12 +2,12 @@ package de.hpi.isg.mmds.sparkstreaming
 
 import org.apache.log4j.{Level, LogManager}
 import org.apache.spark.SparkConf
-import org.apache.spark.SparkContext
 import org.apache.spark.mllib.clustering.StreamingKMeans
 import org.apache.spark.mllib.linalg._
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.streaming.dstream.DStream
 import org.apache.spark.streaming.{Seconds, StreamingContext}
+import org.apache.spark.mllib.linalg.Vectors
 
 object StreamingKMeansExample {
 
@@ -32,7 +32,6 @@ object StreamingKMeansExample {
     LogManager.getRootLogger.setLevel(Level.ERROR)
 
     // start streaming from specified source (startFromAPI: API; startFromDisk: file on disc)
-//    val tweetIdTextStream: DStream[(Long, String)] = TweetStream.startFromAPI(ssc)
     val tweetIdTextStream: DStream[(Long, String)] = TweetStream.startFromDisk(ssc, inputPath)
 
     // preprocess tweets with NLP pipeline
@@ -51,42 +50,48 @@ object StreamingKMeansExample {
       .setK(100)
       .setDecayFactor(1.0)
       .setRandomCenters(VectorDimensions, 1.0)
-      model.trainOn(vectorsStream)
+    model.trainOn(vectorsStream)
 
     val tweetIdClusterIdStream = model.predictOnValues(tweetIdVectorsStream)
-    val tweetIdWithTextAndClusterIdStream = tweetIdClusterIdStream.join(tweetIdTextStream)
 
-    val clusterIdCount = tweetIdClusterIdStream.map {
-      case (tweetId, clusterId) => (clusterId, 1)
+    // contains (tweetId, ((text, clusterId), vector))
+    val joinedStream = tweetIdClusterIdStream.join(tweetIdTextStream).join(tweetIdVectorsStream)
+
+    // contains (tweetId, (text, clusterId, sqDist))
+    val aggregateStream = joinedStream.map {
+      case (tweetId, ((clusterId, text), vector)) =>
+        val center = model.latestModel().clusterCenters(clusterId)
+        (tweetId, (text, clusterId, Vectors.sqdist(vector, center)))
     }
-      .reduceByKey(_+_)
+
+    // contains (clusterId, (count, avgSqDist, closestRepresentative))
+    val clusterInfoStream = aggregateStream
+      .map{case (tweetId, (text, clusterId, sqDist)) => (clusterId, (1, sqDist, tweetId))}
+      .reduceByKey((a, b) => (a._1 + b._1, a._2 + b._2, if (a._2 >= b._2) a._3 else b._3))
+      .map{case (clusterId, (count, distanceSum, representative)) => (clusterId, (count, distanceSum / count, representative))}
 
 
-    clusterIdCount.foreachRDD(rdd => {
-
+    clusterInfoStream.foreachRDD(rdd => {
       if (!rdd.isEmpty()) {
 
         val batchSize = rdd.map {
-          case (clusterId, count) => count
+          case (clusterId, (count, distanceSum, representative)) => count
         }.reduce(_+_)
 
-        println(s"New Batch: $batchSize")
+        println("\n-------------------------\n")
+        println(s"New batch: $batchSize tweets")
         rdd.foreach {
-          case (clusterId, count) => println( s"clusterId: $clusterId count: $count")
+          case (clusterId, (count, distanceSum, representative)) =>
+            println(s"clusterId: $clusterId count: $count, average distance: $distanceSum, representative: $representative")
         }
-        println("-------------------------")
       }
     })
 
-    println("")
-    println("")
-
-
-    tweetIdWithTextAndClusterIdStream.foreachRDD(rdd => {
+    aggregateStream.foreachRDD(rdd => {
+      println("\n-------------------------\n")
       rdd.foreach{
-        case(tweetId, (clusterId, text)) => {
-          println(s"tweetId: $tweetId clusterId: $clusterId, text: $text")
-        }
+        case(tweetId, (text, clusterId, sqDist)) =>
+          println(s"tweetId: $tweetId clusterId: $clusterId, text: $text, sqDist: $sqDist")
       }
 
       // convert RDD to dataframe
@@ -99,10 +104,6 @@ object StreamingKMeansExample {
       //      val my_df = sqlContext.sql("SELECT * from clusterresults LIMIT 5")
       //      my_df.collect().foreach(println)
     })
-
-    println("")
-    println("")
-    println("")
 
     ssc.start()
     ssc.awaitTermination()
