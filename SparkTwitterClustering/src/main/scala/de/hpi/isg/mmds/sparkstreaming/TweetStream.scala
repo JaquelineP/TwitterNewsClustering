@@ -27,10 +27,15 @@ object TweetStream {
     stream
   }
 
-  def startFromDisk(ssc: StreamingContext, inputPath: String): DStream[(Long, String)] = {
-
-    val TweetsPerBatch = 100    // amount of tweets per batch, one batch will be processed per time interval specified for streaming
-    val MaxBatchCount = 10      // amount of batches that are prepared; streaming will crash after all prepared batch are processed!
+  /**
+    * Starts the Stream reading from disk.
+    * @param ssc
+    * @param inputPath
+    * @param TweetsPerBatch optional defaultValue = 100, amount of tweets per batch, one batch will be processed per time interval specified for streaming
+    * @param MaxBatchCount optional defaultValue = 10, amount of batches that are prepared; streaming will crash after all prepared batch are processed!
+    * @return
+    */
+  def startFromDisk(ssc: StreamingContext, inputPath: String, TweetsPerBatch: Int = 100, MaxBatchCount: Int = 10): DStream[(Long, String)] = {
 
     // return tuple with ID & TEXT from tweet as JSON string
     def tupleFromJSONString(tweet: String) = {

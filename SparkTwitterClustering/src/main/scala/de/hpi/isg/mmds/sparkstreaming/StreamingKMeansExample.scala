@@ -8,6 +8,32 @@ import org.apache.spark.sql.SQLContext
 import org.apache.spark.streaming.dstream.DStream
 import org.apache.spark.streaming.{Seconds, StreamingContext}
 import org.apache.spark.mllib.linalg.Vectors
+import org.kohsuke.args4j.{CmdLineException, CmdLineParser, Option}
+import scala.collection.JavaConverters._
+
+
+object TwitterArgs {
+
+  @Option(name = "-input", required = true,
+    usage = "path to input file")
+  var inputPath: String = null
+
+  @Option(name = "-k",
+    usage = "k parameter for K-Means")
+  var k: Int = 100
+
+  @Option(name = "-decay",
+    usage = "forgetfulness factor")
+  var forgetfulness: Double = 0.7
+
+  @Option(name = "-tweetsPerBatch",
+    usage = "amount of tweets per batch")
+  var TweetsPerBatch: Int = 100
+
+  @Option(name = "-maxBatchCount",
+    usage = "amount of batches that are prepared, default value 10")
+  var MaxBatchCount: Int = 10
+}
 
 object StreamingKMeansExample {
 
@@ -16,13 +42,15 @@ object StreamingKMeansExample {
 
   def main(args: Array[String]) {
 
-
-    if (args.isEmpty) {
-      println("Usage: scala <main class> <input URL>")
-      sys.exit(1)
+    val parser = new CmdLineParser(TwitterArgs)
+    try {
+      parser.parseArgument(args.toList.asJava)
+    } catch {
+      case e: CmdLineException =>
+        print(s"Error:${e.getMessage}\n Usage:\n")
+        parser.printUsage(System.out)
+        System.exit(1)
     }
-
-    var inputPath = args(0)
 
     // initialize spark streaming context
     val conf = new SparkConf().setMaster("local[*]").setAppName("StreamingKMeansExample")
@@ -32,7 +60,7 @@ object StreamingKMeansExample {
     LogManager.getRootLogger.setLevel(Level.ERROR)
 
     // start streaming from specified source (startFromAPI: API; startFromDisk: file on disc)
-    val tweetIdTextStream: DStream[(Long, String)] = TweetStream.startFromDisk(ssc, inputPath)
+    val tweetIdTextStream: DStream[(Long, String)] = TweetStream.startFromDisk(ssc, TwitterArgs.inputPath, TwitterArgs.TweetsPerBatch, TwitterArgs.MaxBatchCount)
 
     // preprocess tweets with NLP pipeline
     val tweetIdVectorsStream: DStream[(Long, Vector)] = tweetIdTextStream.transform(tweetRdd => {
@@ -47,9 +75,9 @@ object StreamingKMeansExample {
 
     // perform kMeans
     val model = new StreamingKMeans()
-      .setK(100)
-      .setDecayFactor(1.0)
-      .setRandomCenters(VectorDimensions, 1.0)
+      .setK(TwitterArgs.k)
+      .setDecayFactor(TwitterArgs.forgetfulness)
+      .setRandomCenters(VectorDimensions, 0.0)
     model.trainOn(vectorsStream)
 
     val tweetIdClusterIdStream = model.predictOnValues(tweetIdVectorsStream)
