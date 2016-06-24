@@ -95,25 +95,46 @@ object StreamingKMeansExample {
 
     // contains (clusterId, (count, silhouette, closestRepresentative, interesting))
     val clusterInfoStream = aggregateStream
+
+      // move around attributes to have clusterId as key
       .map{case (tweetId, (text, clusterId, sqDist)) => (clusterId, (1, sqDist, tweetId))}
+
+      // group over clusterId with count, sum of distances & id of tweet with closest distance per cluster
       .reduceByKey{case ((countA, sqDistA, tweetIdA), (countB, sqDistB, tweetIdB))
         => (countA + countB, sqDistA + sqDistB, if (sqDistA >= sqDistB) tweetIdB else tweetIdA)}
+
+      // calculate average distance to center from sum of distances and count
       .map{case (clusterId, (count, distanceSum, representative)) => (clusterId, (count, distanceSum / count, representative))}
+
+      // calculate "kind-of" silhouette for every cluster
       .map{case (clusterId, (count, avgSqDist, representative)) =>
         val center = model.latestModel().clusterCenters(clusterId)
+        // calculate distance to all other cluster centers, and choose lowest
         val neighborDistance = Vectors.sqdist(center,
           model.latestModel.clusterCenters.minBy(otherCenter =>
             if (otherCenter != center) Vectors.sqdist(center, otherCenter) else Double.MaxValue))
         (clusterId, (count, (neighborDistance - avgSqDist) / max(neighborDistance, avgSqDist), representative))}
+
+      // sort by silhouette
       .transform(rdd => rdd.sortBy( { case (clusterId, (count, silhouette, representative)) => silhouette }, ascending = false, 1))
+
+      // mark clusters with more than 3 tweets and silhouette >= 0 as interesting
       .map{ case (clusterId, (count, silhouette, representative))
         => (clusterId, (count, silhouette, representative, (count >= 3) && (silhouette >= 0)))}
 
     // contains (tweetId, (text, clusterId, sqDist)) for tweets from interesting clusters
     val tweetInfoStream = aggregateStream
+
+      // move around attributes to have clusterId as key
       .map{case (tweetId, (text, clusterId, sqDist)) => (clusterId, (tweetId, text, sqDist))}
+
+      // join with cluster info stream
       .join(clusterInfoStream)
+
+      // filter out tweets that are not from interesting clusters
       .filter{case (clusterId, ((tweetId, text, sqDist), (count, silhouette, rep, interesting))) => interesting}
+
+      // remove un-needed attributes again
       .map{case (clusterId, ((tweetId, text, sqDist), (count, silhouette, rep, interesting))) => (tweetId, (text, clusterId, sqDist))}
 
     clusterInfoStream.foreachRDD(rdd => {
