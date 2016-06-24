@@ -93,7 +93,7 @@ object StreamingKMeansExample {
         (tweetId, (text, clusterId, Vectors.sqdist(vector, center)))
     }
 
-    // contains (clusterId, (count, avgSqDist, closestRepresentative))
+    // contains (clusterId, (count, silhouette, closestRepresentative, interesting))
     val clusterInfoStream = aggregateStream
       .map{case (tweetId, (text, clusterId, sqDist)) => (clusterId, (1, sqDist, tweetId))}
       .reduceByKey{case ((countA, sqDistA, tweetIdA), (countB, sqDistB, tweetIdB))
@@ -106,25 +106,33 @@ object StreamingKMeansExample {
             if (otherCenter != center) Vectors.sqdist(center, otherCenter) else Double.MaxValue))
         (clusterId, (count, (neighborDistance - avgSqDist) / max(neighborDistance, avgSqDist), representative))}
       .transform(rdd => rdd.sortBy( { case (clusterId, (count, silhouette, representative)) => silhouette }, ascending = false, 1))
+      .map{ case (clusterId, (count, silhouette, representative))
+        => (clusterId, (count, silhouette, representative, (count >= 3) && (silhouette >= 0)))}
 
+    // contains (tweetId, (text, clusterId, sqDist)) for tweets from interesting clusters
+    val tweetInfoStream = aggregateStream
+      .map{case (tweetId, (text, clusterId, sqDist)) => (clusterId, (tweetId, text, sqDist))}
+      .join(clusterInfoStream)
+      .filter{case (clusterId, ((tweetId, text, sqDist), (count, silhouette, rep, interesting))) => interesting}
+      .map{case (clusterId, ((tweetId, text, sqDist), (count, silhouette, rep, interesting))) => (tweetId, (text, clusterId, sqDist))}
 
     clusterInfoStream.foreachRDD(rdd => {
       if (!rdd.isEmpty()) {
 
         val batchSize = rdd.map {
-          case (clusterId, (count, distanceSum, representative)) => count
+          case (clusterId, (count, distanceSum, representative, interesting)) => count
         }.reduce(_+_)
 
         println("\n-------------------------\n")
         println(s"New batch: $batchSize tweets")
         rdd.foreach {
-          case (clusterId, (count, distanceSum, representative)) =>
-            println(s"clusterId: $clusterId count: $count, silhouette: $distanceSum, representative: $representative")
+          case (clusterId, (count, distanceSum, representative, interesting)) =>
+            println(s"clusterId: $clusterId count: $count, silhouette: $distanceSum, representative: $representative, interesting: $interesting")
         }
       }
     })
 
-    aggregateStream.foreachRDD(rdd => {
+    tweetInfoStream.foreachRDD(rdd => {
       println("\n-------------------------\n")
       rdd.foreach{
         case(tweetId, (text, clusterId, sqDist)) =>
