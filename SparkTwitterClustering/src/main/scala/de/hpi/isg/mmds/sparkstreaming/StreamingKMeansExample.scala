@@ -67,8 +67,10 @@ object StreamingKMeansExample {
     // contains (clusterId, (count, avgSqDist, closestRepresentative))
     val clusterInfoStream = aggregateStream
       .map{case (tweetId, (text, clusterId, sqDist)) => (clusterId, (1, sqDist, tweetId))}
-      .reduceByKey((a, b) => (a._1 + b._1, a._2 + b._2, if (a._2 >= b._2) a._3 else b._3))
+      .reduceByKey{case ((countA, sqDistA, tweetIdA), (countB, sqDistB, tweetIdB))
+        => (countA + countB, sqDistA + sqDistB, if (sqDistA >= sqDistB) tweetIdB else tweetIdA)}
       .map{case (clusterId, (count, distanceSum, representative)) => (clusterId, (count, distanceSum / count, representative))}
+      .transform(rdd => rdd.sortBy( { case (clusterId, (count, sqDistAvg, representative)) => sqDistAvg }, true, 1))
 
 
     clusterInfoStream.foreachRDD(rdd => {
