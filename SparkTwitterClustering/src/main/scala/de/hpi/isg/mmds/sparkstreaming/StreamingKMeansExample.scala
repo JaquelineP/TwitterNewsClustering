@@ -1,5 +1,6 @@
 package de.hpi.isg.mmds.sparkstreaming
 
+import breeze.linalg.max
 import org.apache.log4j.{Level, LogManager}
 import org.apache.spark.SparkConf
 import org.apache.spark.mllib.clustering.StreamingKMeans
@@ -98,7 +99,13 @@ object StreamingKMeansExample {
       .reduceByKey{case ((countA, sqDistA, tweetIdA), (countB, sqDistB, tweetIdB))
         => (countA + countB, sqDistA + sqDistB, if (sqDistA >= sqDistB) tweetIdB else tweetIdA)}
       .map{case (clusterId, (count, distanceSum, representative)) => (clusterId, (count, distanceSum / count, representative))}
-      .transform(rdd => rdd.sortBy( { case (clusterId, (count, sqDistAvg, representative)) => sqDistAvg }, true, 1))
+      .map{case (clusterId, (count, avgSqDist, representative)) =>
+        val center = model.latestModel().clusterCenters(clusterId)
+        val neighborDistance = Vectors.sqdist(center,
+          model.latestModel.clusterCenters.minBy(otherCenter =>
+            if (otherCenter != center) Vectors.sqdist(center, otherCenter) else Double.MaxValue))
+        (clusterId, (count, (neighborDistance - avgSqDist) / max(neighborDistance, avgSqDist), representative))}
+      .transform(rdd => rdd.sortBy( { case (clusterId, (count, silhouette, representative)) => silhouette }, ascending = false, 1))
 
 
     clusterInfoStream.foreachRDD(rdd => {
@@ -112,7 +119,7 @@ object StreamingKMeansExample {
         println(s"New batch: $batchSize tweets")
         rdd.foreach {
           case (clusterId, (count, distanceSum, representative)) =>
-            println(s"clusterId: $clusterId count: $count, average distance: $distanceSum, representative: $representative")
+            println(s"clusterId: $clusterId count: $count, silhouette: $distanceSum, representative: $representative")
         }
       }
     })
