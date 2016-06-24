@@ -61,13 +61,14 @@ object StreamingKMeansExample {
     LogManager.getRootLogger.setLevel(Level.ERROR)
 
     // start streaming from specified source (startFromAPI: API; startFromDisk: file on disc)
-    val tweetIdTextStream: DStream[(Long, String)] = TweetStream.startFromDisk(ssc, TwitterArgs.inputPath, TwitterArgs.TweetsPerBatch, TwitterArgs.MaxBatchCount)
+    val tweetIdTextStream: DStream[(Long, (String, Array[String]))]
+      = TweetStream.startFromDisk(ssc, TwitterArgs.inputPath, TwitterArgs.TweetsPerBatch, TwitterArgs.MaxBatchCount)
 
     // preprocess tweets with NLP pipeline
     val tweetIdVectorsStream: DStream[(Long, Vector)] = tweetIdTextStream.transform(tweetRdd => {
 
       if (!tweetRdd.isEmpty())
-        NLPPipeline.preprocess(tweetRdd)
+        NLPPipeline.preprocess(tweetRdd.map{case (id, (text, urls)) => (id, text)})
       else
         tweetRdd.sparkContext.emptyRDD[(Long, Vector)]
     })
@@ -83,72 +84,79 @@ object StreamingKMeansExample {
 
     val tweetIdClusterIdStream = model.predictOnValues(tweetIdVectorsStream)
 
-    // contains (tweetId, ((text, clusterId), vector))
+    // contains (tweetId, (((text, urls), clusterId), vector))
     val joinedStream = tweetIdClusterIdStream.join(tweetIdTextStream).join(tweetIdVectorsStream)
 
-    // contains (tweetId, (text, clusterId, sqDist))
+    // contains (tweetId, (text, urls, clusterId, sqDist))
     val aggregateStream = joinedStream.map {
-      case (tweetId, ((clusterId, text), vector)) =>
+      case (tweetId, ((clusterId, (text, urls)), vector)) =>
         val center = model.latestModel().clusterCenters(clusterId)
-        (tweetId, (text, clusterId, Vectors.sqdist(vector, center)))
+        (tweetId, (text, urls, clusterId, Vectors.sqdist(vector, center)))
     }
 
     // contains (clusterId, (count, silhouette, closestRepresentative, interesting))
     val clusterInfoStream = aggregateStream
 
       // move around attributes to have clusterId as key
-      .map{case (tweetId, (text, clusterId, sqDist)) => (clusterId, (1, sqDist, tweetId))}
+      .map{case (tweetId, (text, urls, clusterId, sqDist)) => (clusterId, (1, sqDist, tweetId, urls))}
 
       // group over clusterId with count, sum of distances & id of tweet with closest distance per cluster
-      .reduceByKey{case ((countA, sqDistA, tweetIdA), (countB, sqDistB, tweetIdB))
-        => (countA + countB, sqDistA + sqDistB, if (sqDistA >= sqDistB) tweetIdB else tweetIdA)}
+      .reduceByKey{case ((countA, sqDistA, tweetIdA, urlsA), (countB, sqDistB, tweetIdB, urlsB))
+        => (countA + countB, sqDistA + sqDistB, if (sqDistA >= sqDistB) tweetIdB else tweetIdA, urlsA ++ urlsB)}
 
       // calculate average distance to center from sum of distances and count
-      .map{case (clusterId, (count, distanceSum, representative)) => (clusterId, (count, distanceSum / count, representative))}
+      .map{case (clusterId, (count, distanceSum, representative, urls)) => (clusterId, (count, distanceSum / count, representative, urls))}
+
+      // determine most frequently occurring url
+      .map{case (clusterId, (count, distanceAvg, representative, urls)) =>
+        val urlGroups = urls.groupBy(identity).mapValues(_.length)
+        val best_url = if (urlGroups.isEmpty) "none" else urlGroups.maxBy{case (url, occurrences) => occurrences}._1
+        (clusterId, (count, distanceAvg, representative, best_url))}
 
       // calculate "kind-of" silhouette for every cluster
-      .map{case (clusterId, (count, avgSqDist, representative)) =>
+      .map{case (clusterId, (count, avgSqDist, representative, url)) =>
         val center = model.latestModel().clusterCenters(clusterId)
         // calculate distance to all other cluster centers, and choose lowest
         val neighborDistance = Vectors.sqdist(center,
           model.latestModel.clusterCenters.minBy(otherCenter =>
             if (otherCenter != center) Vectors.sqdist(center, otherCenter) else Double.MaxValue))
-        (clusterId, (count, (neighborDistance - avgSqDist) / max(neighborDistance, avgSqDist), representative))}
+        (clusterId, (count, (neighborDistance - avgSqDist) / max(neighborDistance, avgSqDist), representative, url))}
 
       // sort by silhouette
-      .transform(rdd => rdd.sortBy( { case (clusterId, (count, silhouette, representative)) => silhouette }, ascending = false, 1))
+      .transform(rdd => rdd.sortBy( { case (clusterId, (count, silhouette, representative, url)) => silhouette }, ascending = false, 1))
 
-      // mark clusters with more than 3 tweets and silhouette >= 0 as interesting
-      .map{ case (clusterId, (count, silhouette, representative))
-        => (clusterId, (count, silhouette, representative, (count >= 3) && (silhouette >= 0)))}
+      // mark clusters with more than 2 tweets and silhouette >= 0 as interesting
+      .map{ case (clusterId, (count, silhouette, representative, url))
+        => (clusterId, (count, silhouette, representative, url, (count >= 3) && (silhouette >= 0)))}
 
     // contains (tweetId, (text, clusterId, sqDist)) for tweets from interesting clusters
     val tweetInfoStream = aggregateStream
 
       // move around attributes to have clusterId as key
-      .map{case (tweetId, (text, clusterId, sqDist)) => (clusterId, (tweetId, text, sqDist))}
+      .map{case (tweetId, (text, urls, clusterId, sqDist)) => (clusterId, (tweetId, text, sqDist))}
 
       // join with cluster info stream
       .join(clusterInfoStream)
 
       // filter out tweets that are not from interesting clusters
-      .filter{case (clusterId, ((tweetId, text, sqDist), (count, silhouette, rep, interesting))) => interesting}
+      .filter{case (clusterId, ((tweetId, text, sqDist), (count, silhouette, rep, url, interesting))) => interesting}
 
       // remove un-needed attributes again
-      .map{case (clusterId, ((tweetId, text, sqDist), (count, silhouette, rep, interesting))) => (tweetId, (text, clusterId, sqDist))}
+      .map{case (clusterId, ((tweetId, text, sqDist), (count, silhouette, rep, url, interesting))) => (tweetId, (text, clusterId, sqDist))}
 
     clusterInfoStream.foreachRDD(rdd => {
       if (!rdd.isEmpty()) {
 
         val batchSize = rdd.map {
-          case (clusterId, (count, distanceSum, representative, interesting)) => count
+          case (clusterId, (count, distanceSum, representative, url, interesting)) => count
         }.reduce(_+_)
 
         println("\n-------------------------\n")
         println(s"New batch: $batchSize tweets")
         rdd.foreach {
-          case (clusterId, (count, distanceSum, representative, interesting)) =>
-            println(s"clusterId: $clusterId count: $count, silhouette: $distanceSum, representative: $representative, interesting: $interesting")
+          case (clusterId, (count, distanceSum, representative, url, interesting)) =>
+            println(s"clusterId: $clusterId count: $count, silhouette: $distanceSum, " +
+              s"representative: $representative, interesting: $interesting, url: $url")
         }
       }
     })
