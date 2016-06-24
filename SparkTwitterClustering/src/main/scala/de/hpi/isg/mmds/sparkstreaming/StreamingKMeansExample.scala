@@ -34,6 +34,10 @@ object TwitterArgs {
   @Option(name = "-maxBatchCount",
     usage = "amount of batches that are prepared, default value 10")
   var MaxBatchCount: Int = 10
+
+  @Option(name = "-source",
+    usage = "source for tweets, either 'disk' (default) or 'api'")
+  var TweetSource: String = "disk"
 }
 
 object StreamingKMeansExample {
@@ -61,8 +65,11 @@ object StreamingKMeansExample {
     LogManager.getRootLogger.setLevel(Level.ERROR)
 
     // start streaming from specified source (startFromAPI: API; startFromDisk: file on disc)
-    val tweetIdTextStream: DStream[(Long, (String, Array[String]))]
-      = TweetStream.startFromDisk(ssc, TwitterArgs.inputPath, TwitterArgs.TweetsPerBatch, TwitterArgs.MaxBatchCount)
+    val tweetIdTextStream: DStream[(Long, (String, Array[String]))] =
+      if (TwitterArgs.TweetSource == "disk")
+        TweetStream.startFromDisk(ssc, TwitterArgs.inputPath, TwitterArgs.TweetsPerBatch, TwitterArgs.MaxBatchCount)
+      else
+        TweetStream.startFromAPI(ssc)
 
     // preprocess tweets with NLP pipeline
     val tweetIdVectorsStream: DStream[(Long, Vector)] = tweetIdTextStream.transform(tweetRdd => {
