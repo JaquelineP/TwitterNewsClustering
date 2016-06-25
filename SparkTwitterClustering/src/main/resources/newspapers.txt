@@ -26,7 +26,6 @@ Honolulu Star-Advertiser -@StarAdvertiser
 The Arizona Republic - @arizonarepublic
 Star Tribue - @StarTribune
 The Philadelphia Inquirer - @PhillyInquirer
-The Plain Dealer - @ThePlainDealer
 Tampa Bay Times - @TB_Times
 The Star-Ledger - @starledger
 Orange County Register - @ocregister
@@ -40,13 +39,11 @@ UEFA com - @UEFAcom
 TwitterSport - @TwitterSports
 UTV - @utv
 ITV news - @itvnews
-Particle News - @particle_news
 The Telegraph - @telegraph
 CBS News - @CBSNews
 NASA - @NASA
 ABC - @ABC
 The Guradian - @guardian
-Times Now - @TimesNow
 NBC News - @NBCNews
 Yahoo News - @YahooNews
 MSNBC - @MSNBC

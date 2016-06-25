@@ -52,7 +52,6 @@ thedailybeast com
 tribune com pk
 adweek com
 venturebeat com
-thehindu com
 nypost com
 business2community com
 zdnet com
@@ -61,12 +60,10 @@ seekingalpha com
 channelnewsasia com
 sbnation com
 washingtontimes com
-indianexpress com
 thinkprogress org
 usnews com
 chicagotribune com
 searchengineland com
-dnaindia com
 dailykos com
 cbssports com
 newyorker com
