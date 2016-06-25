@@ -48,6 +48,18 @@ class DataParser():
         entities = ["hashtags", "urls", "user_mentions"]
         entity_keys = ["text", "expanded_url", "screen_name"]
         entities_result = {}
+
+        while "quoted_status" in tweet:
+            if tweet["quoted_status"]["lang"] != "en":
+                return
+            id = tweet["id"]
+            text = tweet["text"]
+            timestamp = tweet["timestamp_ms"]
+            tweet = tweet["quoted_status"]
+            tweet["id"] = id
+            tweet["text"] = text + " @QUOTED: " + tweet["text"]
+            tweet["timestamp_ms"] = timestamp
+
         for index, entity in enumerate(entities):
             entities_result[entity] = None
             for e in tweet.get("entities", {}).get(entity, {}):

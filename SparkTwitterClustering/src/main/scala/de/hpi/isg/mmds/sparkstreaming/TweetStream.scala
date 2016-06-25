@@ -5,6 +5,7 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.streaming.dstream.DStream
 import org.apache.spark.streaming.twitter._
+import twitter4j.Status
 
 import scala.util.parsing.json.JSON
 import scala.collection.mutable
@@ -12,6 +13,16 @@ import scala.collection.mutable
 object TweetStream {
 
   def startFromAPI(ssc: StreamingContext): DStream[(Long, (String, Array[String]))] = {
+
+    def getTextAndURLs(tweet: Status): (String, Array[String]) = {
+      var text = tweet.getText
+      var currentTweet = tweet
+      while (currentTweet.getQuotedStatus != null) {
+        currentTweet = currentTweet.getQuotedStatus
+        text = text + " @QUOTED: " + currentTweet.getText
+      }
+      (text, currentTweet.getURLEntities.map(u => u.getExpandedURL))
+    }
 
     // Twitter Authentication
     TwitterAuthentication.readCredentials()
@@ -21,7 +32,7 @@ object TweetStream {
     val englishTweets = tweets.filter(_.getLang == "en")
 
     val stream: DStream[(Long, (String, Array[String]))] = englishTweets.map(tweet => {
-      (tweet.getId, (tweet.getText, tweet.getURLEntities.map(u => u.getExpandedURL)))
+      (tweet.getId, getTextAndURLs(tweet))
     })
 
     stream
