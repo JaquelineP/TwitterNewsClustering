@@ -13,7 +13,7 @@ import org.apache.spark.streaming.{Seconds, StreamingContext}
 import org.apache.spark.mllib.linalg.Vectors
 import org.kohsuke.args4j.{CmdLineException, CmdLineParser, Option}
 import scala.collection.JavaConverters._
-
+import HashAggregation.writeHashes
 
 object TwitterArgs {
 
@@ -47,6 +47,7 @@ object StreamingKMeansExample {
   val VectorDimensions = 1000     // amount of dimensions for vectorizing tweets
   val BatchDuration = 10          // batch duration in seconds
 
+
   def main(args: Array[String]) {
 
     val parser = new CmdLineParser(TwitterArgs)
@@ -74,13 +75,21 @@ object StreamingKMeansExample {
         TweetStream.startFromAPI(ssc)
 
     // preprocess tweets with NLP pipeline
-    val tweetIdVectorsStream: DStream[(Long, Vector)] = tweetIdTextStream.transform(tweetRdd => {
+    val tweetIdVectorsCollisionMapStream: DStream[(Long, Vector, Map[Int, Seq[String]])] = tweetIdTextStream.transform(tweetRdd => {
 
       if (!tweetRdd.isEmpty())
         NLPPipeline.preprocess(tweetRdd.map{case (id, (text, urls)) => (id, text)})
       else
-        tweetRdd.sparkContext.emptyRDD[(Long, Vector)]
+        tweetRdd.sparkContext.emptyRDD[(Long, Vector, Map[Int, Seq[String]])]
     })
+
+    writeHashes(tweetIdVectorsCollisionMapStream)
+
+
+    val tweetIdVectorsStream = tweetIdVectorsCollisionMapStream.map { case (tweetId, vector, hashWordList) => {
+      println(s"$tweetId, $vector")
+      (tweetId, vector)
+    }}
 
     val vectorsStream: DStream[Vector] = tweetIdVectorsStream.map{ case (tweetId, vector) => vector }
 

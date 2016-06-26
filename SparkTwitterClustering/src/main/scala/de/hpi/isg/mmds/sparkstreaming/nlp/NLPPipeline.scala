@@ -6,6 +6,9 @@ import org.apache.spark.ml.feature.{HashingTF, IDF, StopWordsRemover, Tokenizer}
 import org.apache.spark.mllib.linalg._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SQLContext
+import org.apache.spark.sql.functions._
+
+import scala.collection.mutable
 
 object NLPPipeline {
 
@@ -35,7 +38,28 @@ object NLPPipeline {
     .setStages(Array(tokenizer, sanitizer, remover, hashingTF, inverseDocumentFreq))
 
 
-  def preprocess(tweets: RDD[(Long, String)]): RDD[(Long, Vector)] = {
+  def nonNegativeMod(x: Int, mod: Int): Int = {
+    val rawMod = x % mod
+    rawMod + (if (rawMod < 0) mod else 0)
+  }
+
+  def indexOf(term: Any): Int = this.nonNegativeMod(term.##, StreamingKMeansExample.VectorDimensions)
+
+  val collisionMap = udf((words: Seq[String]) => {
+    val collisionMap = mutable.HashMap.empty[Int, Seq[String]]
+
+    words.map(word => {
+
+      val hash = this.indexOf(word)
+      val collisionVector = collisionMap.getOrElse[Seq[String]](hash, Seq[String]())
+
+      val newCollisionVector = (collisionVector :+ word).distinct
+      collisionMap.put(hash, newCollisionVector)
+    })
+    collisionMap
+  })
+
+  def preprocess(tweets: RDD[(Long, String)]): RDD[(Long, Vector, Map[Int, Seq[String]])] = {
 
     // convert RDD to dataframe
     val sqlContext = new SQLContext(tweets.sparkContext)
@@ -48,8 +72,11 @@ object NLPPipeline {
     val pipelineModel = pipeline.fit(dataframe)
     val vectorsDataFrame = pipelineModel.transform(dataframe)
 
+    val changedDataFrame = vectorsDataFrame.withColumn("collisionMap", collisionMap(vectorsDataFrame("filtered")))
+
+
     // convert back to RDD
-    val assembled: RDD[(Long, Vector)] = vectorsDataFrame.map(row => (row.getAs[Long]("key"), row.getAs[Vector]("idf").toDense))
+    val assembled: RDD[(Long, Vector, Map[Int, Seq[String]])] = changedDataFrame.map(row => (row.getAs[Long]("key"), row.getAs[Vector]("idf").toDense, row.getAs[Map[Int, Seq[String]]]("collisionMap")))
     assembled
   }
 
