@@ -1,4 +1,4 @@
-package de.hpi.isg.mmds.sparkstreaming
+package de.hpi.isg.mmds.sparkstreaming.twitter
 
 import breeze.linalg.min
 import org.apache.spark.rdd.RDD
@@ -7,8 +7,8 @@ import org.apache.spark.streaming.dstream.DStream
 import org.apache.spark.streaming.twitter._
 import twitter4j.Status
 
-import scala.util.parsing.json.JSON
 import scala.collection.mutable
+import scala.util.parsing.json.JSON
 
 object TweetStream {
 
@@ -40,6 +40,7 @@ object TweetStream {
 
   /**
     * Starts the Stream reading from disk.
+ *
     * @param ssc spark context
     * @param inputPath path to resources
     * @param TweetsPerBatch optional defaultValue = 100, amount of tweets per batch, one batch will be processed per time interval specified for streaming

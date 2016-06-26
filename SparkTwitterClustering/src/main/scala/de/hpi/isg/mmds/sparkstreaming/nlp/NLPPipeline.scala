@@ -1,5 +1,6 @@
-package de.hpi.isg.mmds.sparkstreaming
+package de.hpi.isg.mmds.sparkstreaming.nlp
 
+import de.hpi.isg.mmds.sparkstreaming.StreamingKMeansExample
 import org.apache.spark.ml.Pipeline
 import org.apache.spark.ml.feature.{HashingTF, IDF, StopWordsRemover, Tokenizer}
 import org.apache.spark.mllib.linalg._

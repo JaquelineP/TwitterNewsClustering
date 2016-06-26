@@ -1,4 +1,4 @@
-package de.hpi.isg.mmds.sparkstreaming
+package de.hpi.isg.mmds.sparkstreaming.nlp
 
 import org.apache.spark.ml.feature.StopWordsRemover
 import org.apache.spark.sql.DataFrame

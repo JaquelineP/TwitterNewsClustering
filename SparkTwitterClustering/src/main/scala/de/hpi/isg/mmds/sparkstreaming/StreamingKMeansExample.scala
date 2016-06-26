@@ -1,6 +1,8 @@
 package de.hpi.isg.mmds.sparkstreaming
 
 import breeze.linalg.max
+import de.hpi.isg.mmds.sparkstreaming.nlp.NLPPipeline
+import de.hpi.isg.mmds.sparkstreaming.twitter.TweetStream
 import org.apache.log4j.{Level, LogManager}
 import org.apache.spark.SparkConf
 import org.apache.spark.mllib.clustering.StreamingKMeans

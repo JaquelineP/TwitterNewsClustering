@@ -1,4 +1,4 @@
-package de.hpi.isg.mmds.sparkstreaming
+package de.hpi.isg.mmds.sparkstreaming.twitter
 
 object TwitterAuthentication {
 
