@@ -1,6 +1,6 @@
 package de.hpi.isg.mmds.sparkstreaming.nlp
 
-import de.hpi.isg.mmds.sparkstreaming.StreamingKMeansExample
+import de.hpi.isg.mmds.sparkstreaming.TwitterArgs
 import org.apache.spark.ml.Pipeline
 import org.apache.spark.ml.feature.{HashingTF, IDF, StopWordsRemover, Tokenizer}
 import org.apache.spark.mllib.linalg._
@@ -25,7 +25,7 @@ object NLPPipeline {
     .setOutputCol("filtered")
 
   val hashingTF = new HashingTF()
-    .setNumFeatures(StreamingKMeansExample.VectorDimensions)
+    .setNumFeatures(TwitterArgs.VectorDimensions)
     .setInputCol(remover.getOutputCol)
     .setOutputCol("tf")
 
@@ -43,7 +43,7 @@ object NLPPipeline {
     rawMod + (if (rawMod < 0) mod else 0)
   }
 
-  def indexOf(term: Any): Int = this.nonNegativeMod(term.##, StreamingKMeansExample.VectorDimensions)
+  def indexOf(term: Any): Int = this.nonNegativeMod(term.##, TwitterArgs.VectorDimensions)
 
   val collisionMap = udf((words: Seq[String]) => {
     val collisionMap = mutable.HashMap.empty[Int, Seq[String]]

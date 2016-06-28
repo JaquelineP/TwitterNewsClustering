@@ -37,16 +37,20 @@ object TwitterArgs {
     usage = "amount of batches that are prepared, default value 10")
   var MaxBatchCount: Int = 10
 
+  @Option(name = "-dimensions",
+    usage = "dimensions for vectorization, default value 1000")
+  var VectorDimensions: Int = 1000
+
+  @Option(name = "-batchDuration",
+    usage = "batch duration in seconds, default value 10")
+  var BatchDuration: Int = 10
+
   @Option(name = "-source",
     usage = "source for tweets, either 'disk' (default) or 'api'")
   var TweetSource: String = "disk"
 }
 
 object StreamingKMeansExample {
-
-  val VectorDimensions = 1000     // amount of dimensions for vectorizing tweets
-  val BatchDuration = 10          // batch duration in seconds
-
 
   def main(args: Array[String]) {
 
@@ -62,7 +66,7 @@ object StreamingKMeansExample {
 
     // initialize spark streaming context
     val conf = new SparkConf().setMaster("local[*]").setAppName("StreamingKMeansExample")
-    val ssc = new StreamingContext(conf, Seconds(BatchDuration))
+    val ssc = new StreamingContext(conf, Seconds(TwitterArgs.BatchDuration))
 
     // set log level
     LogManager.getRootLogger.setLevel(Level.ERROR)
@@ -87,7 +91,7 @@ object StreamingKMeansExample {
 
 
     val tweetIdVectorsStream = tweetIdVectorsCollisionMapStream.map { case (tweetId, vector, hashWordList) => {
-      println(s"$tweetId, $vector")
+      //println(s"$tweetId, $vector")
       (tweetId, vector)
     }}
 
@@ -97,7 +101,7 @@ object StreamingKMeansExample {
     val model = new StreamingKMeans()
       .setK(TwitterArgs.k)
       .setDecayFactor(TwitterArgs.forgetfulness)
-      .setRandomCenters(VectorDimensions, 0.0)
+      .setRandomCenters(TwitterArgs.VectorDimensions, 0.0)
     model.trainOn(vectorsStream)
 
     val tweetIdClusterIdStream = model.predictOnValues(tweetIdVectorsStream)
