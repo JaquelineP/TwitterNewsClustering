@@ -65,7 +65,8 @@ object TweetStream {
     val rddQueue = new mutable.Queue[RDD[(Long, (String, Array[String]))]]()
 
     println(s"Preparing $MaxBatchCount batches.")
-    val tweetTuples = rdd.take(TweetsPerBatch * MaxBatchCount).map(tweet => tupleFromJSONString(tweet))
+    val tweets = rdd.take(TweetsPerBatch * MaxBatchCount)
+    val tweetTuples = ssc.sparkContext.parallelize(tweets).map(tweet => tupleFromJSONString(tweet)).collect()
     val iterator = tweetTuples.grouped(TweetsPerBatch)
     while (iterator.hasNext) rddQueue.enqueue(ssc.sparkContext.makeRDD[(Long, (String, Array[String]))](iterator.next()))
     println("Finished preparing batches.")
