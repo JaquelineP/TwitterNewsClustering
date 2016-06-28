@@ -78,6 +78,8 @@ object StreamingKMeansExample {
       else
         TweetStream.startFromAPI(ssc)
 
+    var lastTime = System.nanoTime
+
     // preprocess tweets with NLP pipeline
     val tweetIdVectorsCollisionMapStream: DStream[(Long, Vector, Map[Int, Seq[String]])] = tweetIdTextStream.transform(tweetRdd => {
 
@@ -175,6 +177,9 @@ object StreamingKMeansExample {
 
         println("\n-------------------------\n")
         println(s"New batch: $batchSize tweets")
+        val elapsed = (System.nanoTime - lastTime).toDouble / 1000000000
+        lastTime = System.nanoTime
+        println(s"Processing time: $elapsed s")
         rdd.foreach {
           case (clusterId, (count, distanceSum, representative, url, interesting)) =>
             println(s"clusterId: $clusterId count: $count, silhouette: $distanceSum, " +
