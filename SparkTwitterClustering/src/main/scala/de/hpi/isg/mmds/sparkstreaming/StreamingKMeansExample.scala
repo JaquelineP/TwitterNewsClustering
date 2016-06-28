@@ -65,7 +65,7 @@ object StreamingKMeansExample {
     }
 
     // initialize spark streaming context
-    val conf = new SparkConf().setMaster("local[*]").setAppName("StreamingKMeansExample")
+    val conf = new SparkConf().setIfMissing("spark.master", "local[2]").setAppName("StreamingKMeansExample")
     val ssc = new StreamingContext(conf, Seconds(TwitterArgs.BatchDuration))
 
     // set log level
@@ -180,20 +180,20 @@ object StreamingKMeansExample {
         val elapsed = (System.nanoTime - lastTime).toDouble / 1000000000
         lastTime = System.nanoTime
         println(s"Processing time: $elapsed s")
-        rdd.foreach {
+        /*rdd.foreach {
           case (clusterId, (count, distanceSum, representative, url, interesting)) =>
             println(s"clusterId: $clusterId count: $count, silhouette: $distanceSum, " +
               s"representative: $representative, interesting: $interesting, url: $url")
-        }
+        }*/
       }
     })
 
     tweetInfoStream.foreachRDD(rdd => {
-      println("\n-------------------------\n")
+      /*println("\n-------------------------\n")
       rdd.foreach{
         case(tweetId, (text, clusterId, sqDist)) =>
           println(s"tweetId: $tweetId clusterId: $clusterId, text: $text, sqDist: $sqDist")
-      }
+      }*/
 
       // convert RDD to dataframe
       val sqlContext = new SQLContext(rdd.sparkContext)
