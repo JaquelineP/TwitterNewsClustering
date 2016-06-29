@@ -48,6 +48,10 @@ object TwitterArgs {
   @Option(name = "-source",
     usage = "source for tweets, either 'disk' (default) or 'api'")
   var TweetSource: String = "disk"
+
+  @Option(name = "-runtime",
+    usage = "weather only run times are printed")
+  var RuntimeMeasurements: Boolean = false
 }
 
 object StreamingKMeansExample {
@@ -175,11 +179,15 @@ object StreamingKMeansExample {
           case (clusterId, (count, distanceSum, representative, url, interesting)) => count
         }.reduce(_+_)
 
-        println("\n-------------------------\n")
-        println(s"New batch: $batchSize tweets")
         val elapsed = (System.nanoTime - lastTime).toDouble / 1000000000
         lastTime = System.nanoTime
-        println(s"Processing time: $elapsed s")
+        if (!TwitterArgs.RuntimeMeasurements) {
+          println("\n-------------------------\n")
+          println(s"New batch: $batchSize tweets")
+          println(s"Processing time: $elapsed s")
+        } else {
+          print(s"$elapsed,")
+        }
         /*rdd.foreach {
           case (clusterId, (count, distanceSum, representative, url, interesting)) =>
             println(s"clusterId: $clusterId count: $count, silhouette: $distanceSum, " +
