@@ -50,7 +50,7 @@ object TwitterArgs {
   var TweetSource: String = "disk"
 
   @Option(name = "-runtime",
-    usage = "weather only run times are printed")
+    usage = "print only runtimes, default false")
   var RuntimeMeasurements: Boolean = false
 }
 
@@ -96,10 +96,9 @@ object StreamingKMeansExample {
     writeHashes(tweetIdVectorsCollisionMapStream)
 
 
-    val tweetIdVectorsStream = tweetIdVectorsCollisionMapStream.map { case (tweetId, vector, hashWordList) => {
-      //println(s"$tweetId, $vector")
-      (tweetId, vector)
-    }}
+    val tweetIdVectorsStream = tweetIdVectorsCollisionMapStream.map {
+      case (tweetId, vector, hashWordList) => (tweetId, vector)
+    }
 
     val vectorsStream: DStream[Vector] = tweetIdVectorsStream.map{ case (tweetId, vector) => vector }
 
@@ -148,14 +147,15 @@ object StreamingKMeansExample {
         val neighborDistance = Vectors.sqdist(center,
           model.latestModel.clusterCenters.minBy(otherCenter =>
             if (otherCenter != center) Vectors.sqdist(center, otherCenter) else Double.MaxValue))
-        (clusterId, (count, (neighborDistance - avgSqDist) / max(neighborDistance, avgSqDist), representative, url))}
+        val silhouette = (neighborDistance - avgSqDist) / max(neighborDistance, avgSqDist)
+        (clusterId, (count, (silhouette, avgSqDist, neighborDistance), representative, url))}
 
       // sort by silhouette
-      .transform(rdd => rdd.sortBy( { case (clusterId, (count, silhouette, representative, url)) => silhouette }, ascending = false, 1))
+      .transform(rdd => rdd.sortBy( { case (clusterId, (count, silhouette, representative, url)) => silhouette._1 }, ascending = false, 1))
 
       // mark clusters with more than 2 tweets and silhouette >= 0 as interesting
       .map{ case (clusterId, (count, silhouette, representative, url))
-        => (clusterId, (count, silhouette, representative, url, (count >= 3) && (silhouette >= 0)))}
+        => (clusterId, (count, silhouette, representative, url, (count >= 3) && (silhouette._1 >= 0)))}
 
     // contains (tweetId, (text, clusterId, sqDist)) for tweets from interesting clusters
     val tweetInfoStream = aggregateStream
@@ -181,27 +181,30 @@ object StreamingKMeansExample {
 
         val elapsed = (System.nanoTime - lastTime).toDouble / 1000000000
         lastTime = System.nanoTime
-        if (!TwitterArgs.RuntimeMeasurements) {
+        if (TwitterArgs.RuntimeMeasurements) {
+          print(s"$elapsed,")
+        } else {
           println("\n-------------------------\n")
           println(s"New batch: $batchSize tweets")
           println(s"Processing time: $elapsed s")
-        } else {
-          print(s"$elapsed,")
+          rdd.foreach {
+            case (clusterId, (count, (silhouette, intra, inter), representative, url, interesting)) =>
+              println(s"clusterId: $clusterId count: $count, silhouette: $silhouette, " +
+                s"intra-distance: $intra, inter-distance: $inter, " +
+                s"representative: $representative, interesting: $interesting, url: $url")
+          }
         }
-        /*rdd.foreach {
-          case (clusterId, (count, distanceSum, representative, url, interesting)) =>
-            println(s"clusterId: $clusterId count: $count, silhouette: $distanceSum, " +
-              s"representative: $representative, interesting: $interesting, url: $url")
-        }*/
       }
     })
 
     tweetInfoStream.foreachRDD(rdd => {
-      /*println("\n-------------------------\n")
-      rdd.foreach{
-        case(tweetId, (text, clusterId, sqDist)) =>
-          println(s"tweetId: $tweetId clusterId: $clusterId, text: $text, sqDist: $sqDist")
-      }*/
+      if (!TwitterArgs.RuntimeMeasurements) {
+        println("\n-------------------------\n")
+        rdd.foreach {
+          case (tweetId, (text, clusterId, sqDist)) =>
+            println(s"tweetId: $tweetId clusterId: $clusterId, text: $text, sqDist: $sqDist")
+        }
+      }
 
       // convert RDD to dataframe
       val sqlContext = new SQLContext(rdd.sparkContext)
