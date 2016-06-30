@@ -50,8 +50,8 @@ object TwitterArgs {
   var TweetSource: String = "disk"
 
   @Option(name = "-runtime",
-    usage = "print only runtimes, default false")
-  var RuntimeMeasurements: Boolean = false
+    usage = "print only runtimes, default true")
+  var RuntimeMeasurements: Boolean = true
 }
 
 object StreamingKMeansExample {
