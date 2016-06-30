@@ -51,7 +51,7 @@ object TwitterArgs {
 
   @Option(name = "-runtime",
     usage = "print only runtimes, default true")
-  var RuntimeMeasurements: Boolean = true
+  var RuntimeMeasurements: Boolean = false
 }
 
 object StreamingKMeansExample {
@@ -78,7 +78,7 @@ object StreamingKMeansExample {
     // start streaming from specified source (startFromAPI: API; startFromDisk: file on disc)
     val tweetIdTextStream: DStream[(Long, (String, Array[String]))] =
       if (TwitterArgs.TweetSource == "disk")
-        TweetStream.startFromDisk(ssc, TwitterArgs.inputPath, TwitterArgs.TweetsPerBatch, TwitterArgs.MaxBatchCount)
+        TweetStream.startFromDisk(ssc, TwitterArgs.inputPath, TwitterArgs.TweetsPerBatch, TwitterArgs.MaxBatchCount, TwitterArgs.RuntimeMeasurements)
       else
         TweetStream.startFromAPI(ssc)
 
@@ -88,13 +88,12 @@ object StreamingKMeansExample {
     val tweetIdVectorsCollisionMapStream: DStream[(Long, Vector, Map[Int, Seq[String]])] = tweetIdTextStream.transform(tweetRdd => {
 
       if (!tweetRdd.isEmpty())
-        NLPPipeline.preprocess(tweetRdd.map{case (id, (text, urls)) => (id, text)})
+        NLPPipeline.preprocess(tweetRdd.map { case (id, (text, urls)) => (id, text) })
       else
         tweetRdd.sparkContext.emptyRDD[(Long, Vector, Map[Int, Seq[String]])]
     })
 
     writeHashes(tweetIdVectorsCollisionMapStream)
-
 
     val tweetIdVectorsStream = tweetIdVectorsCollisionMapStream.map {
       case (tweetId, vector, hashWordList) => (tweetId, vector)
@@ -194,7 +193,7 @@ object StreamingKMeansExample {
                 s"representative: $representative, interesting: $interesting, url: $url")
           }
         }
-      }
+      } else if (TwitterArgs.RuntimeMeasurements) System.exit(0)
     })
 
     tweetInfoStream.foreachRDD(rdd => {

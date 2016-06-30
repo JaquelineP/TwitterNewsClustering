@@ -1,6 +1,5 @@
 package de.hpi.isg.mmds.sparkstreaming.twitter
 
-import breeze.linalg.min
 import org.apache.spark.rdd.RDD
 import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.streaming.dstream.DStream
@@ -47,7 +46,8 @@ object TweetStream {
     * @param MaxBatchCount optional defaultValue = 10, amount of batches that are prepared; streaming will crash after all prepared batch are processed!
     * @return
     */
-  def startFromDisk(ssc: StreamingContext, inputPath: String, TweetsPerBatch: Int = 100, MaxBatchCount: Int = 10): DStream[(Long, (String, Array[String]))] = {
+  def startFromDisk(ssc: StreamingContext, inputPath: String, TweetsPerBatch: Int = 100, MaxBatchCount: Int = 10,
+                    RuntimeMeasurements: Boolean = false): DStream[(Long, (String, Array[String]))] = {
 
     // return tuple with ID & TEXT from tweet as JSON string
     def tupleFromJSONString(tweet: String) = {
@@ -64,12 +64,12 @@ object TweetStream {
     val rdd = ssc.sparkContext.textFile(inputPath)
     val rddQueue = new mutable.Queue[RDD[(Long, (String, Array[String]))]]()
 
-    println(s"Preparing $MaxBatchCount batches.")
+    if (!RuntimeMeasurements) println(s"Preparing $MaxBatchCount batches.")
     val tweets = rdd.take(TweetsPerBatch * MaxBatchCount)
     val tweetTuples = ssc.sparkContext.parallelize(tweets).map(tweet => tupleFromJSONString(tweet)).collect()
     val iterator = tweetTuples.grouped(TweetsPerBatch)
     while (iterator.hasNext) rddQueue.enqueue(ssc.sparkContext.makeRDD[(Long, (String, Array[String]))](iterator.next()))
-    println("Finished preparing batches.")
+    if (!RuntimeMeasurements) println("Finished preparing batches.")
 
     ssc.queueStream(rddQueue, oneAtATime = true)
   }
