@@ -1,36 +1,24 @@
 #!/bin/bash
 
-# Script should be startet inside TwitterTextMining folder
-cd ..
-
-echo "upload data to hdfs"
-/opt/hadoop/default/bin/hadoop fs -put twitter.dat /data/mmds16/twitter/twitter.dat
-
-cd TwitterTextMining/SparkTwitterClustering
-echo "get new code"
-git pull
-echo "build jar"
-mvn package
+cd SparkTwitterClustering
+rm runtime.csv
 
 echo "Start deploying on server"
 
 # for loop from node 1 to 20
-until [ $node -le 19 ]
+for node in `seq 1 20`;
 do
-	node=`expr $node + 1`
-	cores=`expr $node * 2`
-
 	# run each setting 3 times
-	until [ $a -le 2]
+	for j in `seq 1 3`;
 	do
-		echo "Run with $node nodes and $cores cores"
-		echo "$node,$cores," >> runtime.csv
+		echo "Run with $node nodes "
+		echo "$node," >> runtime.csv
 		/opt/spark/default/bin/spark-submit --class de.hpi.isg.mmds.sparkstreaming.StreamingKMeansExample \
-		--driver-memory 4g --executor-memory 2g --executor-cores $cores --num-executors $node \
+		--driver-memory 4g --executor-memory 2g --total-executor-cores $node \
 		target/SparkTwitterClustering-jar-with-dependencies.jar \
 		-input hdfs://tenemhead2/data/mmds16/twitter/twitter.dat \
-		-tweetsPerBatch 5000 -batchDuration 1 -maxBatchCount 10 -runtime true >> runtime.csv
-		echo "\n" >> runtime.csv
+		-tweetsPerBatch 10 -batchDuration 1 -maxBatchCount 20 -runtime  >> runtime.csv
+		echo "   " >> runtime.csv
 	done
 done
 
