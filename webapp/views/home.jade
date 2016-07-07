@@ -1,0 +1,68 @@
+html
+  head
+    title=title
+    link(href='//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css', rel='stylesheet')
+  body
+    div.container
+      div.jumbotron
+        h1 Twitter News Stream
+      div
+        p.
+          sample description
+
+      - var index = 0
+      each round in clusters
+        - var bg = 'lightgray'
+        if index % 2 == 1
+          - bg = 'white'
+        else
+          - bg = 'lightgray'
+        - index = index + 1
+
+        //width:"100%", 
+        table(style={background: bg})
+          // es werden noch die falsen cluster angezeigt...
+          tr
+            - var i = 0
+            each cluster in round
+              if (interesting.indexOf(i) > -1)
+                td=cluster.clusterId
+              - i = i + 1
+          tr
+            - var i = 0
+            each cluster in round
+              if (interesting.indexOf(i) > -1)
+                td=cluster.interesting
+              - i = i + 1
+          tr
+            - var i = 0
+            each cluster in round
+              if (interesting.indexOf(i) > -1)
+                td
+                  a(href='https://twitter.com/CaniLupine/status/' + cluster.representative) #{cluster.representative}
+              - i = i + 1
+          tr
+            - var i = 0
+            each cluster in round
+              if (interesting.indexOf(i) > -1)
+                td
+                  a(href="#{cluster.url}") link
+              - i = i + 1
+          tr
+            - var i = 0
+            each cluster in round
+              if (interesting.indexOf(i) > -1)
+                td=cluster.silhouette
+              - i = i + 1
+          tr
+            - var i = 0
+            each cluster in round
+              if (interesting.indexOf(i) > -1)
+                td=cluster.intradistance
+              - i = i + 1
+          tr
+            - var i = 0
+            each cluster in round
+              if (interesting.indexOf(i) > -1)
+                td=cluster.interdistance
+              - i = i + 1

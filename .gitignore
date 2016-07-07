@@ -74,3 +74,6 @@ config.txt
 
 SparkTwitterClustering/src/main/resources/twitter.dat
 SparkTwitterClustering/output/
+
+# node_modules of website
+/webapp/node_modules/
