@@ -109,6 +109,17 @@
             <version>3.5.0</version>
             <classifier>models</classifier>
         </dependency>
+        <dependency>
+            <groupId>master</groupId>
+            <artifactId>spark-stemming</artifactId>
+            <version>0.1.1</version>
+        </dependency>
     </dependencies>
+    <repositories>
+        <repository>
+            <id>SparkPackagesRepo</id>
+            <url>http://dl.bintray.com/spark-packages/maven</url>
+        </repository>
+    </repositories>
 
 </project>

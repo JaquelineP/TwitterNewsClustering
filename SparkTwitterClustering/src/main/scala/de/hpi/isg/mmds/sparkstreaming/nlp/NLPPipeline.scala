@@ -2,7 +2,7 @@ package de.hpi.isg.mmds.sparkstreaming.nlp
 
 import de.hpi.isg.mmds.sparkstreaming.TwitterArgs
 import org.apache.spark.ml.Pipeline
-import org.apache.spark.ml.feature.{HashingTF, IDF, StopWordsRemover}
+import org.apache.spark.ml.feature.{HashingTF, IDF, StopWordsRemover, Tokenizer}
 import org.apache.spark.mllib.linalg._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SQLContext
@@ -12,12 +12,16 @@ import scala.collection.mutable
 
 object NLPPipeline {
 
-  val stemming = new TweetLemmatizer()
+  val tokenizer = new Tokenizer()
     .setInputCol("text")
-    .setOutputCol("lemmatizedWords")
+    .setOutputCol("tokenizedText")
+
+  val stemmer = new SequenceStemmer()
+    .setInputCol(tokenizer.getOutputCol)
+    .setOutputCol("stemmedText")
 
   val sanitizer = new TweetSanitizer()
-    .setInputCol(stemming.getOutputCol)
+    .setInputCol(stemmer.getOutputCol)
     .setOutputCol("sanitizedWords")
 
   val remover = new StopWordsRemover()
@@ -34,7 +38,7 @@ object NLPPipeline {
     .setOutputCol("idf")
 
   val pipeline = new Pipeline()
-    .setStages(Array(stemming, sanitizer, remover, hashingTF, inverseDocumentFreq))
+    .setStages(Array(tokenizer, stemmer, sanitizer, remover, hashingTF, inverseDocumentFreq))
 
 
   def nonNegativeMod(x: Int, mod: Int): Int = {
