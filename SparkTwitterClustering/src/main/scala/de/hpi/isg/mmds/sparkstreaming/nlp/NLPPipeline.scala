@@ -75,7 +75,6 @@ case class NLPPipeline(vectorDimensions: Int) {
 
     val changedDataFrame = vectorsDataFrame.withColumn("collisionMap", collisionMap(vectorsDataFrame("filtered")))
 
-
     // convert back to RDD
     val assembled: RDD[(Long, Vector, Map[Int, Seq[String]])] = changedDataFrame.map(row => (row.getAs[Long]("key"), row.getAs[Vector]("idf").toDense, row.getAs[Map[Int, Seq[String]]]("collisionMap")))
     assembled

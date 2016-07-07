@@ -20,7 +20,7 @@ case class TwitterClustering(args: Main.MainArgs.type) {
     .setDecayFactor(args.forgetfulness)
     .setRandomCenters(args.vectorDimensions, 0.0)
 
-  def preprocess(tweetIdTextStream: DStream[(Long, (String, Array[String]))]) = {
+  def preprocessTweets(tweetIdTextStream: DStream[(Long, (String, Array[String]))]) = {
 
     val tweetIdVectorsCollisionMapStream = tweetIdTextStream.transform(tweetRdd => {
 
@@ -30,10 +30,14 @@ case class TwitterClustering(args: Main.MainArgs.type) {
         tweetRdd.sparkContext.emptyRDD[(Long, Vector, Map[Int, Seq[String]])]
     })
 
-    tweetIdVectorsCollisionMapStream
+    writeHashes(tweetIdVectorsCollisionMapStream)
+
+    tweetIdVectorsCollisionMapStream.map {
+      case (tweetId, vector, hashWordList) => (tweetId, vector)
+    }
   }
 
-  def cluster(tweetIdVectorsStream: DStream[(Long, Vector)]) = {
+  def clusterTweets(tweetIdVectorsStream: DStream[(Long, Vector)]) = {
 
     val vectorsStream = tweetIdVectorsStream.map{ case (tweetId, vector) => vector }
 
@@ -41,21 +45,19 @@ case class TwitterClustering(args: Main.MainArgs.type) {
     model.predictOnValues(tweetIdVectorsStream)
   }
 
-  def aggregate(joinedStream: DStream[(Long, ((Int, (String, Array[String])), Vector))]) = {
+  def createClusterInfoStream(joinedStream: DStream[(Long, ((Int, (String, Array[String])), Vector))]) = {
     val model = this.model
 
-    val aggregateStream = joinedStream.map {
-      case (tweetId, ((clusterId, (text, urls)), vector)) =>
-        val center = model.latestModel().clusterCenters(clusterId)
-        (tweetId, (text, urls, clusterId, Vectors.sqdist(vector, center)))
-    }
-    aggregateStream
-  }
+    joinedStream
 
-  def createClusterInfoStream(aggregatedStream:  DStream[(Long, (String, Array[String], Int, Double))]) = {
-    val model = this.model
+      // add squared distances
+      .map {
+        case (tweetId, ((clusterId, (text, urls)), vector)) => {
+          val center = model.latestModel().clusterCenters(clusterId)
+          (tweetId, (text, urls, clusterId, Vectors.sqdist(vector, center)))
+        }
+      }
 
-    aggregatedStream
       // move around attributes to have clusterId as key
       .map{case (tweetId, (text, urls, clusterId, sqDist)) => (clusterId, (1, sqDist, tweetId, urls))}
 
@@ -90,22 +92,6 @@ case class TwitterClustering(args: Main.MainArgs.type) {
     => (clusterId, (count, silhouette, representative, url, (count >= 3) && (silhouette._1 >= 0)))}
   }
 
-  def createTweetInfoStream(aggregatedStream: DStream[(Long, (String, Array[String], Int, Double))],
-                            clusterInfoStream:  DStream[(Int, (Int, (Double, Double, Double), Long, String, Boolean))]) = {
-
-    aggregatedStream
-      // move around attributes to have clusterId as key
-      .map{case (tweetId, (text, urls, clusterId, sqDist)) => (clusterId, (tweetId, text, sqDist))}
-
-      // join with cluster info stream
-      .join(clusterInfoStream)
-
-      // filter out tweets that are not from interesting clusters
-      .filter{case (clusterId, ((tweetId, text, sqDist), (count, silhouette, rep, url, interesting))) => interesting}
-
-      // remove un-needed attributes again
-      .map{case (clusterId, ((tweetId, text, sqDist), (count, silhouette, rep, url, interesting))) => (tweetId, (text, clusterId, sqDist))}
-  }
 
   def outputClusterInfos(clusterInfoStream: DStream[(Int, (Int, (Double, Double, Double), Long, String, Boolean))], lastTime: Long) = {
     clusterInfoStream.foreachRDD(rdd => {
@@ -134,19 +120,6 @@ case class TwitterClustering(args: Main.MainArgs.type) {
     })
   }
 
-  def outputTweetInfoStream(tweetInfoStream: DStream[(Long, (String, Int, Double))]) = {
-    tweetInfoStream.foreachRDD(rdd => {
-      if (!args.runtimeMeasurements) {
-        println("\n-------------------------\n")
-        rdd.foreach {
-          case (tweetId, (text, clusterId, sqDist)) =>
-            println(s"tweetId: $tweetId clusterId: $clusterId, text: $text, sqDist: $sqDist")
-        }
-      }
-    })
-  }
-
-
   def execute() {
 
     // initialize spark streaming context
@@ -162,32 +135,18 @@ case class TwitterClustering(args: Main.MainArgs.type) {
     val lastTime = System.nanoTime
 
     // preprocess tweets and create vectors
-    val tweetIdVectorsCollisionMapStream = this.preprocess(tweetIdTextStream)
+    val tweetIdVectorsStream = this.preprocessTweets(tweetIdTextStream)
 
-    //TODO: kann das direkt im preprocess gemacht werden?
-    writeHashes(tweetIdVectorsCollisionMapStream)
-
-    val tweetIdVectorsStream = tweetIdVectorsCollisionMapStream.map {
-      case (tweetId, vector, hashWordList) => (tweetId, vector)
-    }
-
-    // Run Clustering Algorithm and retrieve clusters (tweet Id, cluster Id)
-    val tweetIdClusterIdStream = this.cluster(tweetIdVectorsStream)
+    // run Clustering Algorithm and retrieve clusters (tweet Id, cluster Id)
+    val tweetIdClusterIdStream = this.clusterTweets(tweetIdVectorsStream)
 
     // contains (tweetId, ((clusterId, (text, urls)), vector)
     val joinedStream = tweetIdClusterIdStream.join(tweetIdTextStream).join(tweetIdVectorsStream)
 
-    // contains (tweetId, (text, urls, clusterId, sqDist))
-    val aggregatedStream = this.aggregate(joinedStream)
-
     // contains (clusterId, (count, silhouette, closestRepresentative, interesting))
-    val clusterInfoStream = this.createClusterInfoStream(aggregatedStream)
-
-    // contains (tweetId, (text, clusterId, sqDist)) for tweets from interesting clusters
-    val tweetInfoStream = this.createTweetInfoStream(aggregatedStream, clusterInfoStream)
+    val clusterInfoStream = this.createClusterInfoStream(joinedStream)
 
     this.outputClusterInfos(clusterInfoStream, lastTime)
-    this.outputTweetInfoStream(tweetInfoStream)
 
     ssc.start()
     ssc.awaitTermination()
