@@ -11,74 +11,24 @@ import org.apache.spark.sql.SQLContext
 import org.apache.spark.streaming.dstream.DStream
 import org.apache.spark.streaming.{Seconds, StreamingContext}
 import org.apache.spark.mllib.linalg.Vectors
-import org.kohsuke.args4j.{CmdLineException, CmdLineParser, Option}
-import scala.collection.JavaConverters._
 import HashAggregation.writeHashes
 
-object TwitterArgs {
+object TwitterClustering {
 
-  @Option(name = "-input", required = true,
-    usage = "path to input file")
-  var inputPath: String = null
+  def execute(args: Main.MainArgs.type) {
 
-  @Option(name = "-k",
-    usage = "k parameter for K-Means")
-  var k: Int = 100
-
-  @Option(name = "-decay",
-    usage = "forgetfulness factor")
-  var forgetfulness: Double = 0.7
-
-  @Option(name = "-tweetsPerBatch",
-    usage = "amount of tweets per batch")
-  var TweetsPerBatch: Int = 100
-
-  @Option(name = "-maxBatchCount",
-    usage = "amount of batches that are prepared, default value 10")
-  var MaxBatchCount: Int = 10
-
-  @Option(name = "-dimensions",
-    usage = "dimensions for vectorization, default value 1000")
-  var VectorDimensions: Int = 1000
-
-  @Option(name = "-batchDuration",
-    usage = "batch duration in seconds, default value 10")
-  var BatchDuration: Int = 10
-
-  @Option(name = "-source",
-    usage = "source for tweets, either 'disk' (default) or 'api'")
-  var TweetSource: String = "disk"
-
-  @Option(name = "-runtime",
-    usage = "print only runtimes, default true")
-  var RuntimeMeasurements: Boolean = false
-}
-
-object StreamingKMeansExample {
-
-  def main(args: Array[String]) {
-
-    val parser = new CmdLineParser(TwitterArgs)
-    try {
-      parser.parseArgument(args.toList.asJava)
-    } catch {
-      case e: CmdLineException =>
-        print(s"Error:${e.getMessage}\n Usage:\n")
-        parser.printUsage(System.out)
-        System.exit(1)
-    }
 
     // initialize spark streaming context
     val conf = new SparkConf().setIfMissing("spark.master", "local[2]").setAppName("StreamingKMeansExample")
-    val ssc = new StreamingContext(conf, Seconds(TwitterArgs.BatchDuration))
+    val ssc = new StreamingContext(conf, Seconds(args.batchDuration))
 
     // set log level
     LogManager.getRootLogger.setLevel(Level.ERROR)
 
     // start streaming from specified source (startFromAPI: API; startFromDisk: file on disc)
     val tweetIdTextStream: DStream[(Long, (String, Array[String]))] =
-      if (TwitterArgs.TweetSource == "disk")
-        TweetStream.startFromDisk(ssc, TwitterArgs.inputPath, TwitterArgs.TweetsPerBatch, TwitterArgs.MaxBatchCount, TwitterArgs.RuntimeMeasurements)
+      if (args.tweetSource == "disk")
+        TweetStream.startFromDisk(ssc, args.inputPath, args.tweetsPerBatch, args.maxBatchCount, args.runtimeMeasurements)
       else
         TweetStream.startFromAPI(ssc)
 
@@ -88,7 +38,7 @@ object StreamingKMeansExample {
     val tweetIdVectorsCollisionMapStream: DStream[(Long, Vector, Map[Int, Seq[String]])] = tweetIdTextStream.transform(tweetRdd => {
 
       if (!tweetRdd.isEmpty())
-        NLPPipeline.preprocess(tweetRdd.map { case (id, (text, urls)) => (id, text) })
+        NLPPipeline(args.vectorDimensions).preprocess(tweetRdd.map { case (id, (text, urls)) => (id, text) })
       else
         tweetRdd.sparkContext.emptyRDD[(Long, Vector, Map[Int, Seq[String]])]
     })
@@ -103,9 +53,9 @@ object StreamingKMeansExample {
 
     // perform kMeans
     val model = new StreamingKMeans()
-      .setK(TwitterArgs.k)
-      .setDecayFactor(TwitterArgs.forgetfulness)
-      .setRandomCenters(TwitterArgs.VectorDimensions, 0.0)
+      .setK(args.k)
+      .setDecayFactor(args.forgetfulness)
+      .setRandomCenters(args.vectorDimensions, 0.0)
     model.trainOn(vectorsStream)
 
     val tweetIdClusterIdStream = model.predictOnValues(tweetIdVectorsStream)
@@ -180,7 +130,7 @@ object StreamingKMeansExample {
 
         val elapsed = (System.nanoTime - lastTime).toDouble / 1000000000
         lastTime = System.nanoTime
-        if (TwitterArgs.RuntimeMeasurements) {
+        if (args.runtimeMeasurements) {
           print(s"$elapsed,")
         } else {
           println("\n-------------------------\n")
@@ -193,11 +143,11 @@ object StreamingKMeansExample {
                 s"representative: $representative, interesting: $interesting, url: $url")
           }
         }
-      } else if (TwitterArgs.RuntimeMeasurements) System.exit(0)
+      } else if (args.runtimeMeasurements) System.exit(0)
     })
 
     tweetInfoStream.foreachRDD(rdd => {
-      if (!TwitterArgs.RuntimeMeasurements) {
+      if (!args.runtimeMeasurements) {
         println("\n-------------------------\n")
         rdd.foreach {
           case (tweetId, (text, clusterId, sqDist)) =>
