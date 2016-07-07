@@ -55,6 +55,6 @@ object Main {
         parser.printUsage(System.out)
         System.exit(1)
     }
-    TwitterClustering.execute(MainArgs)
+    TwitterClustering(MainArgs).execute()
   }
 }
