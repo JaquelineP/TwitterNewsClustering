@@ -99,17 +99,6 @@
             <version>2.33</version>
         </dependency>
         <dependency>
-            <groupId>edu.stanford.nlp</groupId>
-            <artifactId>stanford-corenlp</artifactId>
-            <version>3.5.0</version>
-        </dependency>
-        <dependency>
-            <groupId>edu.stanford.nlp</groupId>
-            <artifactId>stanford-corenlp</artifactId>
-            <version>3.5.0</version>
-            <classifier>models</classifier>
-        </dependency>
-        <dependency>
             <groupId>master</groupId>
             <artifactId>spark-stemming</artifactId>
             <version>0.1.1</version>
