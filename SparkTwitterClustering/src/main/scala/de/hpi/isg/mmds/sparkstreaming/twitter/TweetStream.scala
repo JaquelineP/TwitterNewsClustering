@@ -1,7 +1,8 @@
 package de.hpi.isg.mmds.sparkstreaming.twitter
 
+import de.hpi.isg.mmds.sparkstreaming.TwitterClustering
+import de.hpi.isg.mmds.sparkstreaming.nlp.NLPPipeline
 import org.apache.spark.rdd.RDD
-import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.streaming.dstream.DStream
 import org.apache.spark.streaming.twitter._
 import twitter4j.Status
@@ -11,15 +12,15 @@ import scala.util.parsing.json.JSON
 
 object TweetStream {
 
-  def create(ssc: StreamingContext, streamSource: String, inputPath: String, tweetsPerBatch: Int, maxBatchCount: Int, runtimeMeasurements: Boolean) = {
+  var centroids = Array[org.apache.spark.mllib.linalg.Vector]()
+  var host: TwitterClustering = null
 
-      if (streamSource == "disk")
-        TweetStream.createFromDisk(ssc, inputPath, tweetsPerBatch, maxBatchCount, runtimeMeasurements)
-      else
-        TweetStream.createFromAPI(ssc)
+  def create(host: TwitterClustering) = {
+      this.host = host
+      if (host.args.tweetSource == "disk") createFromDisk else createFromAPI
   }
 
-  def createFromAPI(ssc: StreamingContext): DStream[(Long, (String, Array[String]))] = {
+  def createFromAPI: DStream[(Long, (String, Array[String]))] = {
 
     def getTextAndURLs(tweet: Status): (String, Array[String]) = {
       var text = tweet.getText
@@ -31,31 +32,33 @@ object TweetStream {
       (text, currentTweet.getURLEntities.map(u => u.getExpandedURL))
     }
 
+    def startStream: DStream[(Long, (String, Array[String]))] = {
+      val tweets = TwitterUtils.createStream(host.ssc, None, TwitterFilterArray.getFilterArray)
+      val englishTweets = tweets.filter(_.getLang == "en")
+      englishTweets.map(tweet => (tweet.getId, getTextAndURLs(tweet)))
+    }
+
     // Twitter Authentication
     TwitterAuthentication.readCredentials()
 
-    // create Twitter Stream
-    val tweets = TwitterUtils.createStream(ssc, None, TwitterFilterArray.getFilterArray)
-    val englishTweets = tweets.filter(_.getLang == "en")
-
-    val stream: DStream[(Long, (String, Array[String]))] = englishTweets.map(tweet => {
-      (tweet.getId, getTextAndURLs(tweet))
+    val tmpStream = startStream
+    tmpStream.foreachRDD(rdd => {
+      if ((!rdd.isEmpty()) & (centroids.length < host.args.k)) {
+        val tweetRDD = rdd.map { case (id, (text, urls)) => (id, text) }
+        centroids ++= NLPPipeline(host.args.vectorDimensions).preprocess(tweetRDD).map(_._2).collect().distinct
+      }
     })
 
-    stream
+    host.ssc.start()
+    host.ssc.awaitTerminationOrTimeout(30000)
+    host.ssc.stop()
+    host.createStreamingContext()
+
+    centroids = centroids.take(host.args.k)
+    startStream
   }
 
-  /**
-    * Starts the Stream reading from disk.
- *
-    * @param ssc spark context
-    * @param inputPath path to resources
-    * @param TweetsPerBatch optional defaultValue = 100, amount of tweets per batch, one batch will be processed per time interval specified for streaming
-    * @param MaxBatchCount optional defaultValue = 10, amount of batches that are prepared; streaming will crash after all prepared batch are processed!
-    * @return
-    */
-  def createFromDisk(ssc: StreamingContext, inputPath: String, TweetsPerBatch: Int = 100, MaxBatchCount: Int = 10,
-                     RuntimeMeasurements: Boolean = false): DStream[(Long, (String, Array[String]))] = {
+  def createFromDisk: DStream[(Long, (String, Array[String]))] = {
 
     // return tuple with ID & TEXT from tweet as JSON string
     def tupleFromJSONString(tweet: String) = {
@@ -69,17 +72,25 @@ object TweetStream {
       tuple
     }
 
-    val rdd = ssc.sparkContext.textFile(inputPath)
+    val rdd = host.ssc.sparkContext.textFile(host.args.inputPath)
     val rddQueue = new mutable.Queue[RDD[(Long, (String, Array[String]))]]()
 
-    if (!RuntimeMeasurements) println(s"Preparing $MaxBatchCount batches.")
-    val tweets = rdd.take(TweetsPerBatch * MaxBatchCount)
-    val tweetTuples = ssc.sparkContext.parallelize(tweets).map(tweet => tupleFromJSONString(tweet)).collect()
-    val iterator = tweetTuples.grouped(TweetsPerBatch)
-    while (iterator.hasNext) rddQueue.enqueue(ssc.sparkContext.makeRDD[(Long, (String, Array[String]))](iterator.next()))
-    if (!RuntimeMeasurements) println("Finished preparing batches.")
+    val maxBatchCount = host.args.maxBatchCount
+    if (!host.args.runtimeMeasurements) println(s"Preparing $maxBatchCount batches.")
+    val tweets = rdd.take(host.args.tweetsPerBatch * host.args.maxBatchCount)
+    val tweetTuples = host.ssc.sparkContext.parallelize(tweets).map(tweet => tupleFromJSONString(tweet)).collect()
 
-    ssc.queueStream(rddQueue, oneAtATime = true)
+    while (centroids.length < host.args.k) {
+      val fullTweetRDD = host.ssc.sparkContext.makeRDD[(Long, (String, Array[String]))](tweetTuples.take(host.args.k - centroids.length))
+      val tweetRDD = fullTweetRDD.map { case (id, (text, urls)) => (id, text) }
+      centroids ++= NLPPipeline(host.args.vectorDimensions).preprocess(tweetRDD).map(_._2).collect().distinct
+    }
+
+    val iterator = tweetTuples.grouped(host.args.tweetsPerBatch)
+    while (iterator.hasNext) rddQueue.enqueue(host.ssc.sparkContext.makeRDD[(Long, (String, Array[String]))](iterator.next()))
+    if (!host.args.runtimeMeasurements) println("Finished preparing batches.")
+
+    host.ssc.queueStream(rddQueue, oneAtATime = true)
   }
 
 }

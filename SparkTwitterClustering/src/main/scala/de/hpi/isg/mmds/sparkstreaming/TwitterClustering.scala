@@ -7,7 +7,6 @@ import org.apache.log4j.{Level, LogManager}
 import org.apache.spark.SparkConf
 import org.apache.spark.mllib.clustering.StreamingKMeans
 import org.apache.spark.mllib.linalg._
-import org.apache.spark.rdd.RDD
 import org.apache.spark.streaming.dstream.DStream
 import org.apache.spark.streaming.{Seconds, StreamingContext}
 import org.apache.spark.mllib.linalg.Vectors
@@ -15,10 +14,21 @@ import HashAggregation.writeHashes
 
 case class TwitterClustering(args: Main.MainArgs.type) {
 
-  val model = new StreamingKMeans()
-    .setK(args.k)
-    .setDecayFactor(args.forgetfulness)
-    .setRandomCenters(args.vectorDimensions, 0.0)
+  var conf: SparkConf = null
+  var ssc: StreamingContext = null
+  var model: StreamingKMeans = null
+
+  def createStreamingContext() = {
+    conf = new SparkConf().setIfMissing("spark.master", "local[2]").setAppName("StreamingKMeansExample")
+    ssc = new StreamingContext(conf, Seconds(args.batchDuration))
+  }
+
+  def createKMeansModel() = {
+    model = new StreamingKMeans()
+      .setK(args.k)
+      .setDecayFactor(args.forgetfulness)
+      .setInitialCenters(TweetStream.centroids, Array.fill(args.k) {1.0})
+  }
 
   def preprocessTweets(tweetIdTextStream: DStream[(Long, (String, Array[String]))]) = {
 
@@ -38,9 +48,7 @@ case class TwitterClustering(args: Main.MainArgs.type) {
   }
 
   def clusterTweets(tweetIdVectorsStream: DStream[(Long, Vector)]) = {
-
     val vectorsStream = tweetIdVectorsStream.map{ case (tweetId, vector) => vector }
-
     model.trainOn(vectorsStream)
     model.predictOnValues(tweetIdVectorsStream)
   }
@@ -52,10 +60,9 @@ case class TwitterClustering(args: Main.MainArgs.type) {
 
       // add squared distances
       .map {
-        case (tweetId, ((clusterId, (text, urls)), vector)) => {
+        case (tweetId, ((clusterId, (text, urls)), vector)) =>
           val center = model.latestModel().clusterCenters(clusterId)
           (tweetId, (text, urls, clusterId, Vectors.sqdist(vector, center)))
-        }
       }
 
       // move around attributes to have clusterId as key
@@ -122,15 +129,14 @@ case class TwitterClustering(args: Main.MainArgs.type) {
 
   def execute() {
 
-    // initialize spark streaming context
-    val conf = new SparkConf().setIfMissing("spark.master", "local[2]").setAppName("StreamingKMeansExample")
-    val ssc = new StreamingContext(conf, Seconds(args.batchDuration))
+    createStreamingContext()
 
     // set log level
     LogManager.getRootLogger.setLevel(Level.ERROR)
 
     // create Twitter Stream (tweet id, tweet text)
-    val tweetIdTextStream = TweetStream.create(ssc, args.tweetSource, args.inputPath, args.tweetsPerBatch, args.maxBatchCount, args.runtimeMeasurements)
+    val tweetIdTextStream = TweetStream.create(this)
+    createKMeansModel()
 
     val lastTime = System.nanoTime
 
