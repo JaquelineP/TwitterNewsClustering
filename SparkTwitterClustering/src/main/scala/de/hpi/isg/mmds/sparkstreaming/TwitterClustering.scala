@@ -62,41 +62,53 @@ case class TwitterClustering(args: Main.MainArgs.type) {
       .map {
         case (tweetId, ((clusterId, (text, urls)), vector)) =>
           val center = model.latestModel().clusterCenters(clusterId)
-          (tweetId, (text, urls, clusterId, Vectors.sqdist(vector, center)))
+          (clusterId, (1, Vectors.sqdist(vector, center), tweetId, urls))
       }
 
-      // move around attributes to have clusterId as key
-      .map{case (tweetId, (text, urls, clusterId, sqDist)) => (clusterId, (1, sqDist, tweetId, urls))}
-
       // group over clusterId with count, sum of distances & id of tweet with closest distance per cluster
-      .reduceByKey{case ((countA, sqDistA, tweetIdA, urlsA), (countB, sqDistB, tweetIdB, urlsB))
-    => (countA + countB, sqDistA + sqDistB, if (sqDistA >= sqDistB) tweetIdB else tweetIdA, urlsA ++ urlsB)}
+      .reduceByKey {
+        case ((countA, sqDistA, tweetIdA, urlsA), (countB, sqDistB, tweetIdB, urlsB)) => (
+          countA + countB,
+          sqDistA + sqDistB,
+          if (sqDistA >= sqDistB) tweetIdB else tweetIdA,
+          urlsA ++ urlsB
+        )
+      }
 
       // calculate average distance to center from sum of distances and count
-      .map{case (clusterId, (count, distanceSum, representative, urls)) => (clusterId, (count, distanceSum / count, representative, urls))}
+      .map {
+        case (clusterId, (count, distanceSum, representative, urls)) =>
+          (clusterId, (count, distanceSum / count, representative, urls))
+      }
 
       // determine most frequently occurring url
-      .map{case (clusterId, (count, distanceAvg, representative, urls)) =>
-      val urlGroups = urls.groupBy(identity).mapValues(_.length)
-      val best_url = if (urlGroups.isEmpty) "none" else urlGroups.maxBy{case (url, occurrences) => occurrences}._1
-      (clusterId, (count, distanceAvg, representative, best_url))}
+      .map {
+        case (clusterId, (count, distanceAvg, representative, urls)) =>
+          val urlGroups = urls.groupBy(identity).mapValues(_.length)
+          val best_url = if (urlGroups.isEmpty) "none" else urlGroups.maxBy{case (url, occurrences) => occurrences}._1
+          (clusterId, (count, distanceAvg, representative, best_url))
+      }
 
       // calculate "kind-of" silhouette for every cluster
-      .map{case (clusterId, (count, avgSqDist, representative, url)) =>
-      val center = model.latestModel().clusterCenters(clusterId)
-      // calculate distance to all other cluster centers, and choose lowest
-      val neighborDistance = Vectors.sqdist(center,
-        model.latestModel.clusterCenters.minBy(otherCenter =>
-          if (otherCenter != center) Vectors.sqdist(center, otherCenter) else Double.MaxValue))
-      val silhouette = (neighborDistance - avgSqDist) / max(neighborDistance, avgSqDist)
-      (clusterId, (count, (silhouette, avgSqDist, neighborDistance), representative, url))}
+      .map {
+        case (clusterId, (count, avgSqDist, representative, url)) =>
+          val center = model.latestModel().clusterCenters(clusterId)
+          // calculate distance to all other cluster centers, and choose lowest
+          val neighborDistance = Vectors.sqdist(center,
+            model.latestModel.clusterCenters.minBy(otherCenter =>
+              if (otherCenter != center) Vectors.sqdist(center, otherCenter) else Double.MaxValue))
+          val silhouette = (neighborDistance - avgSqDist) / max(neighborDistance, avgSqDist)
+          (clusterId, (count, (silhouette, avgSqDist, neighborDistance), representative, url))
+      }
 
       // sort by silhouette
       .transform(rdd => rdd.sortBy( { case (clusterId, (count, silhouette, representative, url)) => silhouette._1 }, ascending = false, 1))
 
       // mark clusters with more than 2 tweets and silhouette >= 0 as interesting
-      .map{ case (clusterId, (count, silhouette, representative, url))
-    => (clusterId, (count, silhouette, representative, url, (count >= 3) && (silhouette._1 >= 0)))}
+      .map{
+        case (clusterId, (count, silhouette, representative, url)) =>
+          (clusterId, (count, silhouette, representative, url, (count >= 3) && (silhouette._1 >= 0)))
+      }
   }
 
 
