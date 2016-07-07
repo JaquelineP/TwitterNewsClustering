@@ -13,13 +13,14 @@ case class NLPPipeline(vectorDimensions: Int) {
 
   val tokenizer = new Tokenizer()
     .setInputCol("text")
-    .setOutputCol("words")
-  /*val stemming = new TweetLemmatizer()
-    .setInputCol("text")
-    .setOutputCol("lemmatizedWords")*/
+    .setOutputCol("tokenizedText")
+
+  val stemmer = new SequenceStemmer()
+    .setInputCol(tokenizer.getOutputCol)
+    .setOutputCol("stemmedText")
 
   val sanitizer = new TweetSanitizer()
-    .setInputCol(tokenizer.getOutputCol)
+    .setInputCol(stemmer.getOutputCol)
     .setOutputCol("sanitizedWords")
 
   val remover = new StopWordsRemover()
@@ -36,7 +37,7 @@ case class NLPPipeline(vectorDimensions: Int) {
     .setOutputCol("idf")
 
   val pipeline = new Pipeline()
-    .setStages(Array(tokenizer, sanitizer, remover, hashingTF, inverseDocumentFreq))
+    .setStages(Array(tokenizer, stemmer, sanitizer, remover, hashingTF, inverseDocumentFreq))
 
 
   def nonNegativeMod(x: Int, mod: Int): Int = {
