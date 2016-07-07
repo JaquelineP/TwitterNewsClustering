@@ -11,7 +11,15 @@ import scala.util.parsing.json.JSON
 
 object TweetStream {
 
-  def startFromAPI(ssc: StreamingContext): DStream[(Long, (String, Array[String]))] = {
+  def create(ssc: StreamingContext, streamSource: String, inputPath: String, tweetsPerBatch: Int, maxBatchCount: Int, runtimeMeasurements: Boolean) = {
+
+      if (streamSource == "disk")
+        TweetStream.createFromDisk(ssc, inputPath, tweetsPerBatch, maxBatchCount, runtimeMeasurements)
+      else
+        TweetStream.createFromAPI(ssc)
+  }
+
+  def createFromAPI(ssc: StreamingContext): DStream[(Long, (String, Array[String]))] = {
 
     def getTextAndURLs(tweet: Status): (String, Array[String]) = {
       var text = tweet.getText
@@ -46,8 +54,8 @@ object TweetStream {
     * @param MaxBatchCount optional defaultValue = 10, amount of batches that are prepared; streaming will crash after all prepared batch are processed!
     * @return
     */
-  def startFromDisk(ssc: StreamingContext, inputPath: String, TweetsPerBatch: Int = 100, MaxBatchCount: Int = 10,
-                    RuntimeMeasurements: Boolean = false): DStream[(Long, (String, Array[String]))] = {
+  def createFromDisk(ssc: StreamingContext, inputPath: String, TweetsPerBatch: Int = 100, MaxBatchCount: Int = 10,
+                     RuntimeMeasurements: Boolean = false): DStream[(Long, (String, Array[String]))] = {
 
     // return tuple with ID & TEXT from tweet as JSON string
     def tupleFromJSONString(tweet: String) = {

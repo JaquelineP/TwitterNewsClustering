@@ -25,12 +25,8 @@ object TwitterClustering {
     // set log level
     LogManager.getRootLogger.setLevel(Level.ERROR)
 
-    // start streaming from specified source (startFromAPI: API; startFromDisk: file on disc)
-    val tweetIdTextStream: DStream[(Long, (String, Array[String]))] =
-      if (args.tweetSource == "disk")
-        TweetStream.startFromDisk(ssc, args.inputPath, args.tweetsPerBatch, args.maxBatchCount, args.runtimeMeasurements)
-      else
-        TweetStream.startFromAPI(ssc)
+    val tweetIdTextStream = TweetStream.create(ssc, args.tweetSource, args.inputPath, args.tweetsPerBatch, args.maxBatchCount, args.runtimeMeasurements)
+
 
     var lastTime = System.nanoTime
 
