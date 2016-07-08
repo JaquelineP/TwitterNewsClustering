@@ -16,7 +16,7 @@ object HashAggregation {
     val conf = new SparkConf().setMaster("local[*]").setAppName("StreamingKMeansExample")
     val sc = new SparkContext(conf)
 
-    val hashValues: RDD[(Int, Seq[String])] = sc.objectFile("output/part_hashes")
+    val hashValues: RDD[(Int, Seq[String])] = sc.objectFile("output/batch_collisions/batch-*")
 
     hashValues
       .reduceByKey {
@@ -25,7 +25,8 @@ object HashAggregation {
       .filter {
         case (hash, values) => values.length > 1
       }
-      .saveAsTextFile("output/hash_collisions")
+      .sortByKey()
+      .saveAsTextFile("output/merged_collisions")
 
   }
 
@@ -40,10 +41,7 @@ object HashAggregation {
       .reduceByKey {
         case (v1, v2) => Seq.concat(v1,v2).distinct
       }
-
-      .foreachRDD( rdd => {
-        rdd.saveAsObjectFile("output/part_hashes")
-      })
+      .saveAsObjectFiles("output/batch_collisions/batch")
   }
 
 }
