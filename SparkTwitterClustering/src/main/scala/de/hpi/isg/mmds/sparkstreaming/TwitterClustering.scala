@@ -11,6 +11,7 @@ import org.apache.spark.streaming.dstream.DStream
 import org.apache.spark.streaming.{Seconds, StreamingContext}
 import org.apache.spark.mllib.linalg.Vectors
 import HashAggregation.writeHashes
+import ClusterInfoAggregation.writeClusterInfo
 
 case class TwitterClustering(args: Main.MainArgs.type) {
 
@@ -163,6 +164,7 @@ case class TwitterClustering(args: Main.MainArgs.type) {
 
     // contains (clusterId, (count, silhouette, closestRepresentative, interesting))
     val clusterInfoStream = this.createClusterInfoStream(joinedStream)
+    writeClusterInfo(clusterInfoStream)
 
     this.outputClusterInfos(clusterInfoStream, lastTime)
 
