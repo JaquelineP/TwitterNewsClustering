@@ -5,7 +5,6 @@ import de.hpi.isg.mmds.sparkstreaming.nlp.NLPPipeline
 import de.hpi.isg.mmds.sparkstreaming.twitter.TweetStream
 import org.apache.log4j.{Level, LogManager}
 import org.apache.spark.SparkConf
-import org.apache.spark.mllib.clustering.StreamingKMeans
 import org.apache.spark.mllib.linalg._
 import org.apache.spark.streaming.dstream.DStream
 import org.apache.spark.streaming.{Seconds, StreamingContext}
@@ -17,7 +16,7 @@ case class TwitterClustering(args: Main.MainArgs.type) {
 
   var conf: SparkConf = null
   var ssc: StreamingContext = null
-  var model: StreamingKMeans = null
+  var model: ExtendedStreamingKMeans = null
 
   def createStreamingContext() = {
     conf = new SparkConf().setIfMissing("spark.master", "local[2]").setAppName("StreamingKMeansExample")
@@ -25,7 +24,7 @@ case class TwitterClustering(args: Main.MainArgs.type) {
   }
 
   def createKMeansModel() = {
-    model = new StreamingKMeans()
+    model = new ExtendedStreamingKMeans()
       .setK(args.k)
       .setDecayFactor(args.forgetfulness)
       .setInitialCenters(TweetStream.centroids, Array.fill(args.k) {1.0})
@@ -49,9 +48,10 @@ case class TwitterClustering(args: Main.MainArgs.type) {
   }
 
   def clusterTweets(tweetIdVectorsStream: DStream[(Long, Vector)]) = {
+    val model = this.model
     val vectorsStream = tweetIdVectorsStream.map{ case (tweetId, vector) => vector }
     model.trainOn(vectorsStream)
-    model.predictOnValues(tweetIdVectorsStream)
+    tweetIdVectorsStream.map { case (id, vector) => (id, model.latestModel.predict(vector)) }
   }
 
   def createClusterInfoStream(joinedStream: DStream[(Long, ((Int, (String, Array[String])), Vector))]) = {
