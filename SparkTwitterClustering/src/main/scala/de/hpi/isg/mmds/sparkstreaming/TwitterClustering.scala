@@ -145,26 +145,26 @@ case class TwitterClustering(args: Main.MainArgs.type) {
     createStreamingContext()
 
     // set log level
-    LogManager.getRootLogger.setLevel(Level.ERROR)
+    LogManager.getRootLogger.setLevel(Level.OFF)
 
     // create Twitter Stream (tweet id, tweet text)
-    val tweetIdTextStream = TweetStream.create(this)
+    val tweetIdTextStream: DStream[(Long, (String, Array[String]))]  = TweetStream.create(this)
     createKMeansModel()
 
     val lastTime = System.nanoTime
 
     // preprocess tweets and create vectors
-    val tweetIdVectorsStream = this.preprocessTweets(tweetIdTextStream)
+    val tweetIdVectorsStream: DStream[(Long, Vector)] = this.preprocessTweets(tweetIdTextStream)
 
     // run Clustering Algorithm and retrieve clusters (tweet Id, cluster Id)
-    val tweetIdClusterIdStream = this.clusterTweets(tweetIdVectorsStream)
+    val tweetIdClusterIdStream: DStream[(Long, Int)] = this.clusterTweets(tweetIdVectorsStream)
 
     // contains (tweetId, ((clusterId, (text, urls)), vector)
     val joinedStream = tweetIdClusterIdStream.join(tweetIdTextStream).join(tweetIdVectorsStream)
 
     // contains (clusterId, (count, silhouette, closestRepresentative, interesting))
     val clusterInfoStream = this.createClusterInfoStream(joinedStream)
-    writeClusterInfo(clusterInfoStream)
+    writeClusterInfo(clusterInfoStream, joinedStream)
 
     this.outputClusterInfos(clusterInfoStream, lastTime)
 

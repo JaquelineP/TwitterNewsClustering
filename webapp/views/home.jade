@@ -5,10 +5,10 @@ html
   body
     div.container
       div.jumbotron
-        h1 Twitter News Stream
+        h1=title
       div
         p.
-          sample description
+          clusterId, interesting, count, text, representative, url, silhouette, intra, inter
 
       - var index = 0
       each round in clusters
@@ -21,48 +21,60 @@ html
 
         //width:"100%", 
         table(style={background: bg})
-          // es werden noch die falsen cluster angezeigt...
+          // clusterId(1), count(1), silhouette(2), intra(3), inter(4), representative(5), url(6), interesting(7), time(8), text (9)
           tr
             - var i = 0
             each cluster in round
               if (interesting.indexOf(i) > -1)
-                td=cluster.clusterId
+                td=cluster[0]
               - i = i + 1
           tr
             - var i = 0
             each cluster in round
               if (interesting.indexOf(i) > -1)
-                td=cluster.interesting
+                td=cluster[7]
+              - i = i + 1
+          tr
+            - var i = 0
+            each cluster in round
+              if (interesting.indexOf(i) > -1)
+                td=cluster[1]
+              - i = i + 1
+          tr
+            - var i = 0
+            each cluster in round
+              if (interesting.indexOf(i) > -1)
+                td=cluster[9]
               - i = i + 1
           tr
             - var i = 0
             each cluster in round
               if (interesting.indexOf(i) > -1)
                 td
-                  a(href='https://twitter.com/CaniLupine/status/' + cluster.representative) #{cluster.representative}
+                  a(href='https://twitter.com/CaniLupine/status/' + cluster[5]) #{cluster[5]}
               - i = i + 1
           tr
             - var i = 0
             each cluster in round
               if (interesting.indexOf(i) > -1)
                 td
-                  a(href="#{cluster.url}") link
+                  a(href="#{cluster[6]}") link
               - i = i + 1
           tr
             - var i = 0
             each cluster in round
               if (interesting.indexOf(i) > -1)
-                td=cluster.silhouette
+                td=cluster[2]
               - i = i + 1
           tr
             - var i = 0
             each cluster in round
               if (interesting.indexOf(i) > -1)
-                td=cluster.intradistance
+                td=cluster[3]
               - i = i + 1
           tr
             - var i = 0
             each cluster in round
               if (interesting.indexOf(i) > -1)
-                td=cluster.interdistance
+                td=cluster[4]
               - i = i + 1
