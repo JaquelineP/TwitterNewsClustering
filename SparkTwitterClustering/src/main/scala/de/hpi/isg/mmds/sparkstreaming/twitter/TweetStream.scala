@@ -1,5 +1,7 @@
 package de.hpi.isg.mmds.sparkstreaming.twitter
 
+import java.io._
+
 import de.hpi.isg.mmds.sparkstreaming.TwitterClustering
 import de.hpi.isg.mmds.sparkstreaming.nlp.NLPPipeline
 import org.apache.spark.rdd.RDD
@@ -72,19 +74,41 @@ object TweetStream {
       tuple
     }
 
-    val rdd = host.ssc.sparkContext.textFile(host.args.inputPath)
     val rddQueue = new mutable.Queue[RDD[(Long, (String, Array[String]))]]()
 
     val maxBatchCount = host.args.maxBatchCount
     if (!host.args.runtimeMeasurements) println(s"Preparing $maxBatchCount batches.")
-    val tweets = rdd.take(host.args.tweetsPerBatch * host.args.maxBatchCount)
-    val tweetTuples = host.ssc.sparkContext.parallelize(tweets).map(tweet => tupleFromJSONString(tweet)).collect()
+    var tweetTuples : Array[(Long, (String, Array[String]))] = null;
 
-    while (centroids.length < host.args.k) {
-      val fullTweetRDD = host.ssc.sparkContext.makeRDD[(Long, (String, Array[String]))](tweetTuples.take(host.args.k - centroids.length))
-      val tweetRDD = fullTweetRDD.map { case (id, (text, urls)) => (id, text) }
-      centroids ++= NLPPipeline(host.args.vectorDimensions).preprocess(tweetRDD).map(_._2).collect().distinct
+    val filename = "preparedTweets_" + host.args.tweetsPerBatch + "_" +  host.args.maxBatchCount
+    val filenameTuple = filename + "_tuple"
+    val filenameCentroid = filename + "_centroid"
+    val f = new File(filenameTuple)
+    val lastTime = System.nanoTime
+    if (f.exists() && !f.isDirectory()) {
+      // load from disk
+      if (!host.args.runtimeMeasurements) println(s"Load prepared tweets from disk.")
+      var inputStream = new ObjectInputStream(new FileInputStream(filenameTuple))
+      tweetTuples = inputStream.readObject().asInstanceOf[Array[(Long, (String, Array[String]))]]
+      inputStream = new ObjectInputStream(new FileInputStream(filenameCentroid))
+      centroids = inputStream.readObject().asInstanceOf[Array[org.apache.spark.mllib.linalg.Vector]]
+    } else {
+      val rdd = host.ssc.sparkContext.textFile(host.args.inputPath)
+      val tweets = rdd.take(host.args.tweetsPerBatch * host.args.maxBatchCount)
+      tweetTuples = host.ssc.sparkContext.parallelize(tweets)
+        .map(tweet => tupleFromJSONString(tweet)).collect()
+
+      while (centroids.length < host.args.k) {
+        val fullTweetRDD = host.ssc.sparkContext.makeRDD[(Long, (String, Array[String]))](tweetTuples.take(host.args.k - centroids.length))
+        val tweetRDD = fullTweetRDD.map { case (id, (text, urls)) => (id, text) }
+        centroids ++= NLPPipeline(host.args.vectorDimensions).preprocess(tweetRDD).map(_._2).collect().distinct
+      }
+
+      // write tweetTuples and centroids to disk
+      new ObjectOutputStream(new FileOutputStream(filenameTuple)).writeObject(tweetTuples);
+      new ObjectOutputStream(new FileOutputStream(filenameCentroid)).writeObject(centroids);
     }
+    if (!host.args.runtimeMeasurements) println((System.nanoTime - lastTime).toDouble / 1000000000)
 
     val iterator = tweetTuples.grouped(host.args.tweetsPerBatch)
     while (iterator.hasNext) rddQueue.enqueue(host.ssc.sparkContext.makeRDD[(Long, (String, Array[String]))](iterator.next()))
