@@ -113,7 +113,8 @@ case class TwitterClustering(args: Main.MainArgs.type) {
   }
 
 
-  def outputClusterInfos(clusterInfoStream: DStream[(Int, (Int, (Double, Double, Double), Long, String, Boolean))], lastTime: Long) = {
+  def outputClusterInfos(clusterInfoStream: DStream[(Int, (Int, (Double, Double, Double), Long, String, Boolean))]) = {
+    var lastTime = System.nanoTime
     clusterInfoStream.foreachRDD(rdd => {
       if (!rdd.isEmpty()) {
 
@@ -122,7 +123,7 @@ case class TwitterClustering(args: Main.MainArgs.type) {
         }.reduce(_+_)
 
         val elapsed = (System.nanoTime - lastTime).toDouble / 1000000000
-//        lastTime = System.nanoTime
+        lastTime = System.nanoTime
         if (args.runtimeMeasurements) {
           print(s"$elapsed,")
         } else {
@@ -151,8 +152,6 @@ case class TwitterClustering(args: Main.MainArgs.type) {
     val tweetIdTextStream: DStream[(Long, (String, Array[String]))]  = TweetStream.create(this)
     createKMeansModel()
 
-    val lastTime = System.nanoTime
-
     // preprocess tweets and create vectors
     val tweetIdVectorsStream: DStream[(Long, Vector)] = this.preprocessTweets(tweetIdTextStream)
 
@@ -166,7 +165,7 @@ case class TwitterClustering(args: Main.MainArgs.type) {
     val clusterInfoStream = this.createClusterInfoStream(joinedStream)
     writeClusterInfo(clusterInfoStream, joinedStream)
 
-    this.outputClusterInfos(clusterInfoStream, lastTime)
+    this.outputClusterInfos(clusterInfoStream)
 
     ssc.start()
     ssc.awaitTermination()
