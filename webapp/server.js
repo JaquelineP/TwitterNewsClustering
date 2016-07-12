@@ -40,23 +40,24 @@ for (index in filenames){
 }
 
 var dataArray = []
-for (var key in data) {
+Object.keys(data).forEach(function (key) {
+    console.log(key)
+    var empty = [pre + 1, 0, -1, 0, 0, '000000000000000000|||||', '', false, key]
+
     // add empty clusters
     var pre = -1
     var array = []
-    for (lineIndex in data[key]) {
-        var line = data[key][lineIndex]
+    data[key].forEach(function(line){
         var clusterId  = parseInt(line[0]);
-        while (pre + 1 != clusterId) {
-            var empty = [pre + 1, 0, -1, 0, 0, '000000000000000000', '', false, key]
+        while (pre + 1 < clusterId) {
             array.push(empty);
             pre++;
         }
         array.push(line)
         pre++;
-    }
+    });
     dataArray.push(array);
-}
+});
 
 app.set('views', './views');
 app.set('view engine', 'jade');
