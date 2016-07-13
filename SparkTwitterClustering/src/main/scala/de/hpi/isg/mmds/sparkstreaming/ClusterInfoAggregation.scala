@@ -23,18 +23,10 @@ object ClusterInfoAggregation {
       .saveAsTextFile("output/merged_clusterInfo")
   }
 
-  def writeClusterInfo(outputStream: DStream[(Int, (Int, (Double, Double, Double), Long, String, Boolean))], representatives: DStream[(Long, ((Int, (String, Array[String])), Vector))]) = {
-    val text : DStream[(Long, String)] = representatives.map{ case (tweetId, ((clusterId, (text, urls)), vector)) =>
-      (tweetId, text)
-    };
-
+  def writeClusterInfo(outputStream: DStream[(Int, (Int, (Double, Double, Double), Long, String, String, Boolean))]) = {
     outputStream
-      .map{ case (clusterId, (count, (silhouette, intra, inter), representative, url, interesting)) =>
+      .map{ case (clusterId, (count, (silhouette, intra, inter), representative, url, text, interesting)) =>
         val time : Long = System.currentTimeMillis / 1000
-        (representative, (clusterId, count, silhouette, intra, inter, url, interesting, time))
-      }
-      .join(text)
-      .map{ case (representative, ((clusterId, count, silhouette, intra, inter, url, interesting, time), text)) =>
         (clusterId, count, silhouette, intra, inter, representative, url, interesting, time, text)
       }
       .saveAsObjectFiles("output/batch_clusterInfo/batch")

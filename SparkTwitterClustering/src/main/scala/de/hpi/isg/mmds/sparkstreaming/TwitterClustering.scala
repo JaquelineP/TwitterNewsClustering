@@ -63,63 +63,62 @@ case class TwitterClustering(args: Main.MainArgs.type) {
       .map {
         case (tweetId, ((clusterId, (text, urls)), vector)) =>
           val center = model.latestModel().clusterCenters(clusterId)
-          (clusterId, (1, Vectors.sqdist(vector, center), tweetId, urls))
+          (clusterId, (1, Vectors.sqdist(vector, center), tweetId, text, urls))
       }
-
-      // group over clusterId with count, sum of distances & id of tweet with closest distance per cluster
-      .reduceByKey {
-        case ((countA, sqDistA, tweetIdA, urlsA), (countB, sqDistB, tweetIdB, urlsB)) => (
+        .reduceByKey {
+        case ((countA, sqDistA, tweetIdA, textA, urlsA), (countB, sqDistB, tweetIdB, textB, urlsB)) => (
           countA + countB,
           sqDistA + sqDistB,
           if (sqDistA >= sqDistB) tweetIdB else tweetIdA,
+          if (sqDistA >= sqDistB) textB else  textA,
           urlsA ++ urlsB
         )
       }
 
       // calculate average distance to center from sum of distances and count
       .map {
-        case (clusterId, (count, distanceSum, representative, urls)) =>
-          (clusterId, (count, distanceSum / count, representative, urls))
+        case (clusterId, (count, distanceSum, representative, text, urls)) =>
+          (clusterId, (count, distanceSum / count, representative, text, urls))
       }
 
       // determine most frequently occurring url
       .map {
-        case (clusterId, (count, distanceAvg, representative, urls)) =>
+        case (clusterId, (count, distanceAvg, representative, text, urls)) =>
           val urlGroups = urls.groupBy(identity).mapValues(_.length)
           val best_url = if (urlGroups.isEmpty) "none" else urlGroups.maxBy{case (url, occurrences) => occurrences}._1
-          (clusterId, (count, distanceAvg, representative, best_url))
+          (clusterId, (count, distanceAvg, representative, text, best_url))
       }
 
       // calculate "kind-of" silhouette for every cluster
       .map {
-        case (clusterId, (count, avgSqDist, representative, url)) =>
+        case (clusterId, (count, avgSqDist, representative, text, url)) =>
           val center = model.latestModel().clusterCenters(clusterId)
           // calculate distance to all other cluster centers, and choose lowest
           val neighborDistance = Vectors.sqdist(center,
             model.latestModel.clusterCenters.minBy(otherCenter =>
               if (otherCenter != center) Vectors.sqdist(center, otherCenter) else Double.MaxValue))
           val silhouette = (neighborDistance - avgSqDist) / max(neighborDistance, avgSqDist)
-          (clusterId, (count, (silhouette, avgSqDist, neighborDistance), representative, url))
+          (clusterId, (count, (silhouette, avgSqDist, neighborDistance), representative, text, url))
       }
 
       // sort by silhouette
-      .transform(rdd => rdd.sortBy( { case (clusterId, (count, silhouette, representative, url)) => silhouette._1 }, ascending = false, 1))
+      .transform(rdd => rdd.sortBy( { case (clusterId, (count, silhouette, representative, text, url)) => silhouette._1 }, ascending = false, 1))
 
       // mark clusters with more than 2 tweets and silhouette >= 0 as interesting
       .map{
-        case (clusterId, (count, silhouette, representative, url)) =>
-          (clusterId, (count, silhouette, representative, url, (count >= 3) && (silhouette._1 >= 0)))
+        case (clusterId, (count, silhouette, representative, text, url)) =>
+          (clusterId, (count, silhouette, representative, text, url, (count >= 3) && (silhouette._1 >= 0)))
       }
   }
 
 
-  def outputClusterInfos(clusterInfoStream: DStream[(Int, (Int, (Double, Double, Double), Long, String, Boolean))]) = {
+  def outputClusterInfos(clusterInfoStream: DStream[(Int, (Int, (Double, Double, Double), Long, String, String, Boolean))]) = {
     var lastTime = System.nanoTime
     clusterInfoStream.foreachRDD(rdd => {
       if (!rdd.isEmpty()) {
 
         val batchSize = rdd.map {
-          case (clusterId, (count, distanceSum, representative, url, interesting)) => count
+          case (clusterId, (count, distanceSum, representative, url, text, interesting)) => count
         }.reduce(_+_)
 
         val elapsed = (System.nanoTime - lastTime).toDouble / 1000000000
@@ -131,7 +130,7 @@ case class TwitterClustering(args: Main.MainArgs.type) {
           println(s"New batch: $batchSize tweets")
           println(s"Processing time: $elapsed s")
           rdd.foreach {
-            case (clusterId, (count, (silhouette, intra, inter), representative, url, interesting)) =>
+            case (clusterId, (count, (silhouette, intra, inter), representative, url, text, interesting)) =>
               println(s"clusterId: $clusterId count: $count, silhouette: $silhouette, " +
                 s"intra-distance: $intra, inter-distance: $inter, " +
                 s"representative: $representative, interesting: $interesting, url: $url")
@@ -163,7 +162,7 @@ case class TwitterClustering(args: Main.MainArgs.type) {
 
     // contains (clusterId, (count, silhouette, closestRepresentative, interesting))
     val clusterInfoStream = this.createClusterInfoStream(joinedStream)
-    writeClusterInfo(clusterInfoStream, joinedStream)
+    writeClusterInfo(clusterInfoStream)
 
     this.outputClusterInfos(clusterInfoStream)
 
