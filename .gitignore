@@ -77,3 +77,4 @@ SparkTwitterClustering/output/
 
 # node_modules of website
 /webapp/node_modules/
+SparkTwitterClustering/preparedTweets_*

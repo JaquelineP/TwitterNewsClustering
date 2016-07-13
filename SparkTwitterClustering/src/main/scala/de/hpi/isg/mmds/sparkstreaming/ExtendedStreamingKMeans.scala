@@ -19,33 +19,75 @@ class ExtendedStreamingKMeans extends StreamingKMeans {
   }
 
   def removeCentroids(centers: Array[Int]): this.type = {
-    val newCenters = model.clusterCenters
+    var newCenters = model.clusterCenters
       .zipWithIndex
       .filter { case (vector, index) => !centers.contains(index) }
       .map { case (vector, index) => vector }
-    val newWeights = model.clusterWeights
+    var newWeights = model.clusterWeights
       .zipWithIndex
       .filter { case (weight, index) => !centers.contains(index) }
       .map { case (weight, index) => weight }
+
+    if (newCenters.length == 0) {
+      newCenters = Array.fill(1)(Vectors.dense(Array.fill(model.clusterCenters(0).size)(-1.0)))
+      newWeights = Array.fill(1)(0.0)
+    }
+
     updateModel(newCenters, newWeights)
   }
 
-  override def trainOn(data: DStream[Vector]) {
-    data.foreachRDD { (rdd) =>
-      val distantTweets = rdd.filter { (vector) =>
+  private def addClusters(data: DStream[Vector]): Unit = {
+    data.foreachRDD { rdd =>
+      val distantVectors = rdd.filter { (vector) =>
         val center = model.predict(vector)
-        Vectors.sqdist(vector, latestModel().clusterCenters(center)) > 100
+        Vectors.sqdist(vector, model.clusterCenters(center)) > 100
       }.collect()
 
       var newCenters = Array[Vector]()
-      distantTweets.foreach { tweet =>
+      distantVectors.foreach { vector =>
         var addNewCenter = true
-        newCenters.foreach(center => addNewCenter &&= Vectors.sqdist(tweet, center) > 50)
-        if (addNewCenter) newCenters +:= tweet
+        newCenters.foreach(center => addNewCenter &&= Vectors.sqdist(vector, center) > 50)
+        if (addNewCenter) newCenters +:= vector
       }
-      addCentroids(newCenters, Array.fill[Double](newCenters.length)(1.0))
+      addCentroids(newCenters, Array.fill[Double](newCenters.length)(0.0))
     }
+  }
+
+  private def mergeClusters(data: DStream[Vector]): Unit = {
+    data.foreachRDD { rdd =>
+      val centerRDD = rdd.sparkContext.parallelize(model.clusterCenters.zipWithIndex)
+      val clustersToMerge = centerRDD
+        .cartesian(centerRDD)
+        .filter { case ((vec1, index1), (vec2, index2)) => (index1 < index2) && (Vectors.sqdist(vec1, vec2) < 50) }
+        .map { case ((vec1, index1), (vec2, index2)) => (index1, index2) }
+        .collect()
+
+      var clustersToDelete = Array[Int]()
+      clustersToMerge.foreach { case (index1, index2) =>
+        if (!clustersToDelete.contains(index1) && !clustersToDelete.contains(index2)) {
+          clustersToDelete +:= index2
+        }
+      }
+      removeCentroids(clustersToDelete)
+    }
+  }
+
+  private def deleteOldClusters(data: DStream[Vector]): Unit = {
+    data.foreachRDD { rdd =>
+      val clustersToDelete = rdd.sparkContext.parallelize(model.clusterWeights)
+        .zipWithIndex
+        .filter { case (weight, index) => weight < 1.0 }
+        .map { case (weight, index) => index.toInt }
+        .collect()
+      removeCentroids(clustersToDelete)
+    }
+  }
+
+  override def trainOn(data: DStream[Vector]) {
+    addClusters(data)
     super.trainOn(data)
+    mergeClusters(data)
+    deleteOldClusters(data)
   }
 
 }
