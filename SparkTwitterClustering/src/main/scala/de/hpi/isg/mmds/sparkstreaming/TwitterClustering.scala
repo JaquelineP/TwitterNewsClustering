@@ -25,9 +25,9 @@ case class TwitterClustering(args: Main.MainArgs.type) {
 
   def createKMeansModel() = {
     model = new ExtendedStreamingKMeans()
-      .setK(args.k)
+      .setK(1)
       .setDecayFactor(args.forgetfulness)
-      .setInitialCenters(TweetStream.centroids, Array.fill(args.k) {1.0})
+      .setInitialCenters(Array.fill(1)(Vectors.dense(Array.fill(args.vectorDimensions)(-1.0))), Array.fill(1)(0.0))
   }
 
   def preprocessTweets(tweetIdTextStream: DStream[(Long, (String, Array[String]))]) = {
