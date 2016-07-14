@@ -1,11 +1,12 @@
 var express = require('express');
 var ejs = require('ejs')
-
+var path = require('path')
 var app = express();
 
 /* use ejs template engine instead of jade */
 app.set('view engine', 'html');
 app.engine('html', ejs.renderFile);
+app.use(express.static(path.join(__dirname, 'public')));
 
 function readData() {
 
@@ -20,7 +21,6 @@ function readData() {
         return e.lastIndexOf('part-', 0) === 0
     });
     var lines = []
-
     // for each filename
     for (index in filenames){
         var filename = path + '/' + filenames[index]

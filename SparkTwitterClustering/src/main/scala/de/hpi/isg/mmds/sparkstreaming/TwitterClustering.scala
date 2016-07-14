@@ -95,7 +95,7 @@ case class TwitterClustering(args: Main.MainArgs.type) {
           // mark clusters with more than 2 tweets and silhouette >= 0 as interesting
           val interesting = (count >= 3) && (silhouette >= 0)
 
-          val cluster = new Cluster(new Score(count, silhouette, avgSqDist, neighborDistance), interesting, tweet, best_url)
+          val cluster = new Cluster(new Score(count, silhouette, avgSqDist, neighborDistance), interesting, tweet, best_url, model.fixedId(clusterId))
           (clusterId, cluster)
       }
 
@@ -107,13 +107,16 @@ case class TwitterClustering(args: Main.MainArgs.type) {
 
   def outputClusterInfos(clusterInfoStream: DStream[(Int, Cluster)]) = {
     var lastTime = System.nanoTime
-    val model = this.model
     clusterInfoStream.foreachRDD(rdd => {
       if (!rdd.isEmpty()) {
 
-        val batchSize = rdd.map {
-          case (clusterId, cluster) => cluster.score.count
-        }.reduce(_+_)
+        val batchSize = rdd
+          .map { case (clusterId, cluster) => cluster.score.count }
+          .reduce(_+_)
+
+        val totalSilhouette = rdd
+          .map { case (clusterId, cluster) => cluster.score.count * cluster.score.silhouette }
+          .reduce(_+_)
 
         val elapsed = (System.nanoTime - lastTime).toDouble / 1000000000
         lastTime = System.nanoTime
@@ -122,14 +125,16 @@ case class TwitterClustering(args: Main.MainArgs.type) {
         } else {
           println("\n-------------------------\n")
           println(s"New batch: $batchSize tweets")
-          println(s"Processing time: $elapsed s")
+          println(f"Processing time: $elapsed%.2fs")
+          println(s"Cluster count: ${model.k}")
+          println(f"Average silhouette: ${totalSilhouette / batchSize}%.2f")
+
           rdd.foreach {
             case (clusterId, cluster) =>
-              val fixedId = model.fixedId(clusterId)
               val score = cluster.score
               val tweet = cluster.representative
               val url = cluster.best_url
-              println(s"clusterId: $fixedId count: ${score.count}, silhouette: ${score.silhouette}, " +
+              println(s"clusterId: ${cluster.fixed_id} count: ${score.count}, silhouette: ${score.silhouette}, " +
                 s"intra-distance: ${score.intra}, inter-distance: ${score.inter}, " +
                 s"representative: ${tweet.id}, interesting: ${cluster.interesting}, url: $url")
           }

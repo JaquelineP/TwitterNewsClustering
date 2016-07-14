@@ -1,6 +1,7 @@
 <html>
   <head>
     <title> Twitter News Stream </title>
+    <link href="css/custom.css" type="text/css" rel="stylesheet">
     <link href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.datatables.net/1.10.12/css/jquery.dataTables.min.css" rel="stylesheet">
 
@@ -12,8 +13,8 @@
     <table id="twitter-cluster" class="display " cellspacing="0" width="100%">
       <thead>
         <tr>
-          <th> Cluster ID </th>
-          <th> Attribute </th>
+          <th>Cluster ID</th>
+          <th>Attribute</th>
           <% for(var i=0; i<clusters[0].length; i++) {%>
             <th> Batch <%= i %> </th>
           <% } %>
@@ -23,7 +24,7 @@
       <tbody>
         <% for(var i=0; i<clusters.length; i++) {%>
           <tr>
-            <td rowspan="6"><%= clusters[i][0]['id'] %></td>
+            <td rowspan="6" style="border-bottom:1pt solid black;"><%= clusters[i][0]['id'] %></td>
             <td> Count </td>
             <% for(var j=0; j<clusters[i].length; j++) {%>
               <td> <%= clusters[i][j]['count'] %></td>
@@ -57,7 +58,7 @@
                 <td> <%= clusters[i][j]['intra'] %></td>
               <% } %>
           </tr>
-          <tr>
+          <tr class="border_bottom">
             <td> Inter </td>
 
               <% for(var j=0; j<clusters[i].length; j++) {%>
