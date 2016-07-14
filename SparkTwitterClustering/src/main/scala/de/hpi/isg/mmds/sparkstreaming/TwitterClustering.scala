@@ -111,9 +111,13 @@ case class TwitterClustering(args: Main.MainArgs.type) {
     clusterInfoStream.foreachRDD(rdd => {
       if (!rdd.isEmpty()) {
 
-        val batchSize = rdd.map {
-          case (clusterId, cluster) => cluster.score.count
-        }.reduce(_+_)
+        val batchSize = rdd
+          .map { case (clusterId, cluster) => cluster.score.count }
+          .reduce(_+_)
+
+        val totalSilhouette = rdd
+          .map { case (clusterId, cluster) => cluster.score.count * cluster.score.silhouette }
+          .reduce(_+_)
 
         val elapsed = (System.nanoTime - lastTime).toDouble / 1000000000
         lastTime = System.nanoTime
@@ -122,7 +126,10 @@ case class TwitterClustering(args: Main.MainArgs.type) {
         } else {
           println("\n-------------------------\n")
           println(s"New batch: $batchSize tweets")
-          println(s"Processing time: $elapsed s")
+          println(f"Processing time: $elapsed%.2fs")
+          println(s"Cluster count: ${model.k}")
+          println(f"Average silhouette: ${totalSilhouette / batchSize}%.2f")
+
           rdd.foreach {
             case (clusterId, cluster) =>
               val fixedId = model.fixedId(clusterId)
