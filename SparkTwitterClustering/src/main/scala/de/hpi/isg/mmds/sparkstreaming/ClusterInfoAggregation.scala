@@ -14,28 +14,27 @@ object ClusterInfoAggregation {
   }
 
   def aggregate() = {
+    // round to 2 decimals
+    def round(x: Double) = x - (x % 0.01)
+
     val conf = new SparkConf().setIfMissing("spark.master", "local[2]").setAppName("StreamingKMeansExample")
     val sc = new SparkContext(conf)
 
-    val clusterInfo: RDD[(Int, Int, Double, Double, Double, Long, String, Boolean, Long, String)] = sc.objectFile("output/batch_clusterInfo/batch-*")
+    val clusterInfo: RDD[(Int, Cluster, Long)] = sc.objectFile("output/batch_clusterInfo/batch-*")
     clusterInfo
-        .sortBy(c => c._9 + c._1, true)
+        .sortBy(c => c._3 + c._1, true)
+        .map{ case (clusterId, cluster, time) =>
+          (clusterId, cluster.score.count, round(cluster.score.silhouette), round(cluster.score.intra), round(cluster.score.inter),
+            cluster.representative.id, cluster.best_url, cluster.interesting, time, cluster.representative.content.text)
+        }
       .saveAsTextFile("output/merged_clusterInfo")
   }
 
-  def writeClusterInfo(outputStream: DStream[(Int, (Int, (Double, Double, Double), Long, String, Boolean))], representatives: DStream[(Long, ((Int, (String, Array[String])), Vector))]) = {
-    val text : DStream[(Long, String)] = representatives.map{ case (tweetId, ((clusterId, (text, urls)), vector)) =>
-      (tweetId, text)
-    };
-
+  def writeClusterInfo(outputStream: DStream[(Int, Cluster)]) = {
     outputStream
-      .map{ case (clusterId, (count, (silhouette, intra, inter), representative, url, interesting)) =>
+      .map{ case (clusterId, content) =>
         val time : Long = System.currentTimeMillis / 1000
-        (representative, (clusterId, count, silhouette, intra, inter, url, interesting, time))
-      }
-      .join(text)
-      .map{ case (representative, ((clusterId, count, silhouette, intra, inter, url, interesting, time), text)) =>
-        (clusterId, count, silhouette, intra, inter, representative, url, interesting, time, text)
+        (clusterId, content, time)
       }
       .saveAsObjectFiles("output/batch_clusterInfo/batch")
   }
