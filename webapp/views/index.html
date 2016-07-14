@@ -9,7 +9,7 @@
   <body>
     <div class="container">
     <h1> Twitter News Stream </h1>
-    <table id="twitter-cluster" class="display" cellspacing="0" width="100%">
+    <table id="twitter-cluster" class="display " cellspacing="0" width="100%">
       <thead>
         <tr>
           <th> Cluster ID </th>
@@ -40,7 +40,7 @@
             <td> News URL </td>
 
               <% for(var j=0; j<clusters[i].length; j++) {%>
-                <td> <%= clusters[i][j]['newsUrl'] %></td>
+                <td><a href="<%= clusters[i][j]['newsUrl'] %>">url</a></td>
               <% } %>
           </tr>
           <tr>

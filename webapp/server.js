@@ -84,7 +84,7 @@ app.get('/index', function(req, res) {
                 'id': 1,
                 'count': 10,
                 'tweet': 'https://twitter.com/nytimes/status/753559763808612352',
-                'newsUrl': 'url',
+                'newsUrl': 'http://www.nytimes.com/2016/07/15/us/politics/house-democrats-campaign.html?smid=tw-nytimes&smtyp=cur&_r=0',
                 'silhouette': 1.2,
                 'intra': 0.3,
                 'inter': 0.1
@@ -93,7 +93,7 @@ app.get('/index', function(req, res) {
                 'id': 1,
                 'count': 15,
                 'tweet': 'https://twitter.com/nytimes/status/753559763808612352',
-                'newsUrl': 'url',
+                'newsUrl': 'http://www.nytimes.com/2016/07/15/us/politics/house-democrats-campaign.html?smid=tw-nytimes&smtyp=cur&_r=0',
                 'silhouette': 1.2,
                 'intra': 0.3,
                 'inter': 0.1
@@ -102,7 +102,7 @@ app.get('/index', function(req, res) {
                 'id': 1,
                 'count': 20,
                 'tweet': 'https://twitter.com/nytimes/status/753559763808612352',
-                'newsUrl': 'url',
+                'newsUrl': 'http://www.nytimes.com/2016/07/15/us/politics/house-democrats-campaign.html?smid=tw-nytimes&smtyp=cur&_r=0',
                 'silhouette': 1.2,
                 'intra': 0.3,
                 'inter': 0.1
@@ -114,7 +114,7 @@ app.get('/index', function(req, res) {
                 'id': 2,
                 'count': 40,
                 'tweet': 'https://twitter.com/nytimes/status/753559763808612352',
-                'newsUrl': 'url',
+                'newsUrl': 'http://www.nytimes.com/2016/07/15/us/politics/house-democrats-campaign.html?smid=tw-nytimes&smtyp=cur&_r=0',
                 'silhouette': 1.2,
                 'intra': 0.3,
                 'inter': 0.1
@@ -123,7 +123,7 @@ app.get('/index', function(req, res) {
                 'id': 2,
                 'count': 20,
                 'tweet': 'https://twitter.com/nytimes/status/753559763808612352', 
-                'newsUrl': 'url',
+                'newsUrl': 'http://www.nytimes.com/2016/07/15/us/politics/house-democrats-campaign.html?smid=tw-nytimes&smtyp=cur&_r=0',
                 'silhouette': 1.2,
                 'intra': 0.3,
                 'inter': 0.1
@@ -132,7 +132,7 @@ app.get('/index', function(req, res) {
                 'id': 2,
                 'count': 20,
                 'tweet': 'https://twitter.com/nytimes/status/753559763808612352', 
-                'newsUrl': 'url',
+                'newsUrl': 'http://www.nytimes.com/2016/07/15/us/politics/house-democrats-campaign.html?smid=tw-nytimes&smtyp=cur&_r=0',
                 'silhouette': 1.2,
                 'intra': 0.3,
                 'inter': 0.1
