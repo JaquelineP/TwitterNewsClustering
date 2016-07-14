@@ -34,7 +34,7 @@ object ClusterInfoAggregation {
     outputStream
       .map{ case (clusterId, content) =>
         val time : Long = System.currentTimeMillis / 1000
-        (clusterId, content, time)
+        (content.fixed_id, content, time)
       }
       .saveAsObjectFiles("output/batch_clusterInfo/batch")
   }

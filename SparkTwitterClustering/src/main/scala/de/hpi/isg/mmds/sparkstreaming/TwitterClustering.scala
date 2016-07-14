@@ -95,7 +95,7 @@ case class TwitterClustering(args: Main.MainArgs.type) {
           // mark clusters with more than 2 tweets and silhouette >= 0 as interesting
           val interesting = (count >= 3) && (silhouette >= 0)
 
-          val cluster = new Cluster(new Score(count, silhouette, avgSqDist, neighborDistance), interesting, tweet, best_url)
+          val cluster = new Cluster(new Score(count, silhouette, avgSqDist, neighborDistance), interesting, tweet, best_url, model.fixedId(clusterId))
           (clusterId, cluster)
       }
 
@@ -107,7 +107,6 @@ case class TwitterClustering(args: Main.MainArgs.type) {
 
   def outputClusterInfos(clusterInfoStream: DStream[(Int, Cluster)]) = {
     var lastTime = System.nanoTime
-    val model = this.model
     clusterInfoStream.foreachRDD(rdd => {
       if (!rdd.isEmpty()) {
 
@@ -132,11 +131,10 @@ case class TwitterClustering(args: Main.MainArgs.type) {
 
           rdd.foreach {
             case (clusterId, cluster) =>
-              val fixedId = model.fixedId(clusterId)
               val score = cluster.score
               val tweet = cluster.representative
               val url = cluster.best_url
-              println(s"clusterId: $fixedId count: ${score.count}, silhouette: ${score.silhouette}, " +
+              println(s"clusterId: ${cluster.fixed_id} count: ${score.count}, silhouette: ${score.silhouette}, " +
                 s"intra-distance: ${score.intra}, inter-distance: ${score.inter}, " +
                 s"representative: ${tweet.id}, interesting: ${cluster.interesting}, url: $url")
           }
