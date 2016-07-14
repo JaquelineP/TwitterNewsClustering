@@ -2,6 +2,7 @@ var express = require('express');
 var ejs = require('ejs')
 var path = require('path')
 var app = express();
+var fs = require('fs');
 
 /* use ejs template engine instead of jade */
 app.set('view engine', 'html');
@@ -10,9 +11,6 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 function readData() {
 
-    // read data and create "json object"
-    var data  = {};
-    var fs = require('fs');
     // get filenames
     var path = '../SparkTwitterClustering/output/merged_clusterInfo'
     var filenames = fs.readdirSync(path);
@@ -20,7 +18,9 @@ function readData() {
         // startwith
         return e.lastIndexOf('part-', 0) === 0
     });
+
     var lines = []
+    var times = []
     // for each filename
     for (index in filenames){
         var filename = path + '/' + filenames[index]
@@ -35,16 +35,25 @@ function readData() {
             line = line.substring(1);
             var lineArray = line.split(",")
             if (lineArray.length < 8) return;
+            var time = lineArray[8]
+
+            var contains = false
+            times.forEach(function(ea) {
+                if (ea === time) contains = true
+            })
+            if (!contains) times.push(time)
+
             var parsedLine = {
                 'id': lineArray[0],
                 'count': lineArray[1],
+                'tweetId' :  lineArray[5],
                 'tweet': 'https://twitter.com/nytimes/status/' + lineArray[5],
                 'newsUrl': lineArray[6],
                 'silhouette': lineArray[2],
                 'intra': lineArray[3],
                 'inter': lineArray[4],
                 'interesting' : lineArray[7] == 'true',
-                'batch_time' : lineArray[8]
+                'batch_time' : time
             }
             lines.push(parsedLine);
         });
@@ -70,23 +79,58 @@ function readData() {
     });
 
     // filter uninteresting clusters
-    return result.filter(function(cluster) {
+    result = result.filter(function(cluster) {
         var interesting = false;
         cluster.forEach(function(line){
             interesting = interesting || line.interesting
         });
         return interesting;
     })
+
+    // add empty cluster if deleted
+    return result.map(function(cluster) {
+        if (cluster.length == times.length) return cluster;
+
+        var empty = {
+            'id': cluster[0].id,
+            'count': 0,
+            'tweetId' : '',
+            'tweet': '',
+            'newsUrl': '',
+            'silhouette': '',
+            'intra': '',
+            'inter': '',
+            'interesting' : '',
+            'batch_time' : ''
+        }
+
+        var existingBatches = cluster.map(function(ea) {return ea.batch_time})
+        times.forEach(function(batch) {
+            var contains = false
+            existingBatches.forEach(function(ea) {
+                if (ea == batch) contains = true
+            });
+            if (contains) return
+
+            // for this time no batch exists -> add empty batch
+            empty.time = batch
+            cluster.push(empty)
+        })
+        return cluster
+    })
 }
 
 app.set('views', './views');
 app.set('view engine', 'jade');
 
+var clusters = readData()
+
 app.get('/index', function(req, res) {
     res.render('index.html', {
         // enter params for view here
         title: "Twitter News Stream",
-        clusters: readData()
+        clusters: clusters,
+        interesting: clusters.length
     });
 });
 

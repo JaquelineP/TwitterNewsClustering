@@ -93,7 +93,7 @@ case class TwitterClustering(args: Main.MainArgs.type) {
           val silhouette = (neighborDistance - avgSqDist) / max(neighborDistance, avgSqDist)
 
           // mark clusters with more than 2 tweets and silhouette >= 0 as interesting
-          val interesting = (count >= 3) && (silhouette >= 0)
+          val interesting = (count >= 8) && (silhouette >= 0)
 
           val cluster = new Cluster(new Score(count, silhouette, avgSqDist, neighborDistance), interesting, tweet, best_url, model.fixedId(clusterId))
           (clusterId, cluster)
