@@ -6,6 +6,9 @@ import org.apache.spark.streaming.dstream.DStream
 
 class ExtendedStreamingKMeans extends StreamingKMeans {
 
+  private var ids = Array[Int]()
+  private var maxId = -1
+
   private def updateModel(newCenters: Array[Vector], newWeights: Array[Double]): this.type = {
     model = new StreamingKMeansModel(newCenters, newWeights)
     setK(newCenters.length)
@@ -15,23 +18,27 @@ class ExtendedStreamingKMeans extends StreamingKMeans {
   def addCentroids(centers: Array[Vector], weights: Array[Double]): this.type = {
     val newCenters = model.clusterCenters ++ centers
     val newWeights = model.clusterWeights ++ weights
-    this.updateModel(newCenters, newWeights)
+    ids ++= Array.range(maxId + 1, newCenters.length - model.clusterCenters.length + maxId + 1)
+    maxId += newCenters.length - model.clusterCenters.length
+    updateModel(newCenters, newWeights)
   }
 
   def removeCentroids(centers: Array[Int]): this.type = {
-    var newCenters = model.clusterCenters
+    var newData = (model.clusterCenters, model.clusterWeights, ids)
+      .zipped
+      .toArray
       .zipWithIndex
-      .filter { case (vector, index) => !centers.contains(index) }
-      .map { case (vector, index) => vector }
-    var newWeights = model.clusterWeights
-      .zipWithIndex
-      .filter { case (weight, index) => !centers.contains(index) }
-      .map { case (weight, index) => weight }
+      .filter { case (data, index) => !centers.contains(index) }
+      .map { case (data, index) => data }
 
-    if (newCenters.length == 0) {
-      newCenters = Array.fill(1)(Vectors.dense(Array.fill(model.clusterCenters(0).size)(-1.0)))
-      newWeights = Array.fill(1)(0.0)
+    if (newData.isEmpty) {
+      maxId += 1
+      newData = Array((Vectors.dense(Array.fill(model.clusterCenters(0).size)(-1.0)), 0.0, maxId))
     }
+
+    val newCenters = newData.map { case (center, weight, id) => center }
+    val newWeights = newData.map { case (center, weight, id) => weight }
+    ids = newData.map { case (center, weight, id) => id }
 
     updateModel(newCenters, newWeights)
   }
@@ -88,6 +95,25 @@ class ExtendedStreamingKMeans extends StreamingKMeans {
     super.trainOn(data)
     mergeClusters(data)
     deleteOldClusters(data)
+  }
+
+  def fixedId(id: Int): Int = {
+    ids(id)
+  }
+
+  override def setRandomCenters(dim: Int, weight: Double, seed: Long = -1): this.type = {
+    ids = Array.range(maxId + 1, k + maxId + 1)
+    maxId += k
+    if (seed == -1)
+      super.setRandomCenters(dim, weight)
+    else
+      super.setRandomCenters(dim, weight, seed)
+  }
+
+  override def setInitialCenters(centers: Array[Vector], weights: Array[Double]): this.type = {
+    ids = Array.range(maxId + 1, centers.length + maxId + 1)
+    maxId += centers.length
+    super.setInitialCenters(centers, weights)
   }
 
 }

@@ -115,6 +115,7 @@ case class TwitterClustering(args: Main.MainArgs.type) {
 
   def outputClusterInfos(clusterInfoStream: DStream[(Int, (Int, (Double, Double, Double), Long, String, Boolean))]) = {
     var lastTime = System.nanoTime
+    val model = this.model
     clusterInfoStream.foreachRDD(rdd => {
       if (!rdd.isEmpty()) {
 
@@ -132,7 +133,8 @@ case class TwitterClustering(args: Main.MainArgs.type) {
           println(s"Processing time: $elapsed s")
           rdd.foreach {
             case (clusterId, (count, (silhouette, intra, inter), representative, url, interesting)) =>
-              println(s"clusterId: $clusterId count: $count, silhouette: $silhouette, " +
+              val fixedId = model.fixedId(clusterId)
+              println(s"clusterId: $fixedId count: $count, silhouette: $silhouette, " +
                 s"intra-distance: $intra, inter-distance: $inter, " +
                 s"representative: $representative, interesting: $interesting, url: $url")
           }
