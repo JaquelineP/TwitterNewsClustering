@@ -1,0 +1,104 @@
+<html>
+  <head>
+    <title> Twitter News Stream </title>
+    <link href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.datatables.net/1.10.12/css/jquery.dataTables.min.css" rel="stylesheet">
+
+
+  </head>
+  <body>
+    <div class="container">
+    <h1> Twitter News Stream </h1>
+    <table id="twitter-cluster" class="display" cellspacing="0" width="100%">
+      <thead>
+        <tr>
+          <th> Cluster ID </th>
+          <th> Attribute </th>
+          <% for(var i=0; i<clusters[0].length; i++) {%>
+            <th> Batch <%= i %> </th>
+          <% } %>
+        </tr>
+      </thead>
+
+      <tbody>
+        <% for(var i=0; i<clusters.length; i++) {%>
+          <tr>
+            <td rowspan="6"><%= clusters[i][0]['id'] %></td>
+            <td> Count </td>
+            <% for(var j=0; j<clusters[i].length; j++) {%>
+              <td> <%= clusters[i][j]['count'] %></td>
+            <% } %>
+          </tr>
+          <tr>
+            <td> Tweet </td>
+              <% for(var j=0; j<clusters[i].length; j++) {%>
+                <td id="tweet-<%= i %>-<%= j %>">
+                 </td>
+              <% } %>
+          </tr>
+          <tr>
+            <td> News URL </td>
+
+              <% for(var j=0; j<clusters[i].length; j++) {%>
+                <td> <%= clusters[i][j]['newsUrl'] %></td>
+              <% } %>
+          </tr>
+          <tr>
+            <td> Silhouette </td>
+
+              <% for(var j=0; j<clusters[i].length; j++) {%>
+                <td> <%= clusters[i][j]['silhouette'] %></td>
+              <% } %>
+          </tr>
+          <tr>
+            <td> Intra </td>
+
+              <% for(var j=0; j<clusters[i].length; j++) {%>
+                <td> <%= clusters[i][j]['intra'] %></td>
+              <% } %>
+          </tr>
+          <tr>
+            <td> Inter </td>
+
+              <% for(var j=0; j<clusters[i].length; j++) {%>
+                <td> <%= clusters[i][j]['inter'] %></td>
+              <% } %>
+          </tr>
+        <% } %>
+      </tbody>
+    </table>
+
+    <script type="text/javascript"
+      src="https://code.jquery.com/jquery-1.12.3.js">
+    </script>
+    <script type="text/javascript"
+      src="https://cdn.datatables.net/1.10.12/js/jquery.dataTables.min.js">
+    </script>
+    <script>
+      $(document).ready(function() {
+        $('#twitter-cluster').DataTable();
+      });
+    </script>
+    <script async src="//platform.twitter.com/widgets.js" charset="utf-8"></script>
+    <script>
+        <% for(var i=0; i<clusters.length; i++) {%>
+          <% for(var j=0; j<clusters[i].length; j++) {%>
+            var url = "<%= clusters[i][j]['tweet'] %>"
+            $.ajax({
+                url: "https://api.twitter.com/1/statuses/oembed.json?url="+url,
+                dataType: "jsonp",
+                success: function(data){
+                    console.log("hello")
+                    var id = "#tweet-<%= i %>-<%= j %>"
+                    console.log(id)
+                    $(id).html(data.html)
+                }
+            });
+          <% } %>
+        <% } %>
+
+
+    </script>
+    </div>
+  </body>
+</html>

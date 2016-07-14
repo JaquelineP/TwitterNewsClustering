@@ -1,5 +1,12 @@
 var express = require('express');
+var ejs = require('ejs')
+
 var app = express();
+
+/* use ejs template engine instead of jade */
+app.set('view engine', 'html');
+app.engine('html', ejs.renderFile);
+
 
 // read data and create "json object"
 var data  = {};
@@ -70,7 +77,78 @@ for (i = 0; i < dataArray.length; i++) {
     }
 }
 
+app.get('/index', function(req, res) {
+        var clusters = [
+        [
+            {
+                'id': 1,
+                'count': 10,
+                'tweet': 'https://twitter.com/nytimes/status/753559763808612352',
+                'newsUrl': 'url',
+                'silhouette': 1.2,
+                'intra': 0.3,
+                'inter': 0.1
+            },
+            {
+                'id': 1,
+                'count': 15,
+                'tweet': 'https://twitter.com/nytimes/status/753559763808612352',
+                'newsUrl': 'url',
+                'silhouette': 1.2,
+                'intra': 0.3,
+                'inter': 0.1
+            },
+            {
+                'id': 1,
+                'count': 20,
+                'tweet': 'https://twitter.com/nytimes/status/753559763808612352',
+                'newsUrl': 'url',
+                'silhouette': 1.2,
+                'intra': 0.3,
+                'inter': 0.1
+            },
+
+        ],
+        [
+            {
+                'id': 2,
+                'count': 40,
+                'tweet': 'https://twitter.com/nytimes/status/753559763808612352',
+                'newsUrl': 'url',
+                'silhouette': 1.2,
+                'intra': 0.3,
+                'inter': 0.1
+            },
+            {
+                'id': 2,
+                'count': 20,
+                'tweet': 'https://twitter.com/nytimes/status/753559763808612352', 
+                'newsUrl': 'url',
+                'silhouette': 1.2,
+                'intra': 0.3,
+                'inter': 0.1
+            },
+            {
+                'id': 2,
+                'count': 20,
+                'tweet': 'https://twitter.com/nytimes/status/753559763808612352', 
+                'newsUrl': 'url',
+                'silhouette': 1.2,
+                'intra': 0.3,
+                'inter': 0.1
+            },
+        ]
+    ]
+    res.render('index.html', {
+        // enter params for view here
+        title: "Twitter News Stream",
+        clusters: clusters,
+        interesting: interesting
+    });
+});
+
 app.get('/', function(req, res) {
+
     res.render('home', {
         // enter params for view here
         title: "Twitter News Stream",
