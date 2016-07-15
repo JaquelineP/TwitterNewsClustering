@@ -23,8 +23,10 @@ class ExtendedStreamingKMeans extends StreamingKMeans {
     updateModel(newCenters, newWeights)
   }
 
-  def removeCentroids(centers: Array[Int]): this.type = {
-    var newData = (model.clusterCenters, model.clusterWeights, ids)
+  def removeCentroids(centers: Array[Int], addWeights: Array[(Int, Double)] = Array.empty): this.type = {
+    val updatedWeights = model.clusterWeights
+    for ((id, weight) <- addWeights) { updatedWeights.update(id, updatedWeights(id) + weight) }
+    var newData = (model.clusterCenters, updatedWeights, ids)
       .zipped
       .toArray
       .zipWithIndex
@@ -70,12 +72,19 @@ class ExtendedStreamingKMeans extends StreamingKMeans {
         .collect()
 
       var clustersToDelete = Array[Int]()
+      var addWeights = Array[(Int, Double)]()
       clustersToMerge.foreach { case (index1, index2) =>
         if (!clustersToDelete.contains(index1) && !clustersToDelete.contains(index2)) {
-          clustersToDelete +:= index2
+          if (model.clusterWeights(index1) > model.clusterWeights(index2)) {
+            clustersToDelete +:= index2
+            addWeights +:= (index1, model.clusterWeights(index2))
+          } else {
+            clustersToDelete +:= index1
+            addWeights +:= (index2, model.clusterWeights(index1))
+          }
         }
       }
-      removeCentroids(clustersToDelete)
+      removeCentroids(clustersToDelete, addWeights)
     }
   }
 
