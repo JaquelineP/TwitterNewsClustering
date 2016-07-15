@@ -10,7 +10,7 @@
   <body>
     <div class="container">
     <h1> Twitter News Stream </h1>
-    <table id="twitter-cluster" class="display " cellspacing="0" width="100%">
+    <table id="twitter-cluster" class="display " cellspacing="0">
       <thead>
         <tr>
           <th>Cluster ID</th>
@@ -24,42 +24,42 @@
       <tbody>
         <% for(var i=0; i<clusters.length; i++) {%>
           <tr>
-            <td rowspan="6" style="border-bottom:1pt solid black;"><%= clusters[i][0]['id'] %></td>
-            <td> Count </td>
+            <td rowspan="6" style="border-bottom:1pt solid black;" class="first"><%= clusters[i][0]['id'] %></td>
+            <td class="first"> Count </td>
             <% for(var j=0; j<clusters[i].length; j++) {%>
               <td> <%= clusters[i][j]['count'] %></td>
             <% } %>
           </tr>
           <tr>
-            <td> Tweet </td>
+            <td class="first"> Tweet </td>
               <% for(var j=0; j<clusters[i].length; j++) {%>
                 <td id="tweet-<%= i %>-<%= j %>">
                  </td>
               <% } %>
           </tr>
           <tr>
-            <td> News URL </td>
+            <td class="first"> News URL </td>
 
               <% for(var j=0; j<clusters[i].length; j++) {%>
                 <td><a href="<%= clusters[i][j]['newsUrl'] %>">url</a></td>
               <% } %>
           </tr>
           <tr>
-            <td> Silhouette </td>
+            <td class="first"> Silhouette </td>
 
               <% for(var j=0; j<clusters[i].length; j++) {%>
                 <td> <%= clusters[i][j]['silhouette'] %></td>
               <% } %>
           </tr>
           <tr>
-            <td> Intra </td>
+            <td class="first"> Intra </td>
 
               <% for(var j=0; j<clusters[i].length; j++) {%>
                 <td> <%= clusters[i][j]['intra'] %></td>
               <% } %>
           </tr>
           <tr class="border_bottom">
-            <td> Inter </td>
+            <td class="first"> Inter </td>
 
               <% for(var j=0; j<clusters[i].length; j++) {%>
                 <td> <%= clusters[i][j]['inter'] %></td>
