@@ -1,8 +1,11 @@
 package de.hpi.isg.mmds.sparkstreaming
 
+import java.io.File
+
 import breeze.linalg.max
 import de.hpi.isg.mmds.sparkstreaming.nlp.NLPPipeline
 import de.hpi.isg.mmds.sparkstreaming.twitter.TweetStream
+import org.apache.commons.io.FileUtils
 import org.apache.log4j.{Level, LogManager}
 import org.apache.spark.SparkConf
 import org.apache.spark.mllib.linalg._
@@ -145,6 +148,8 @@ case class TwitterClustering(args: Main.MainArgs.type) {
 
   def execute() {
 
+    FileUtils.deleteDirectory(new File("output/batch_clusterInfo"))
+    FileUtils.deleteDirectory(new File("output/batch_collisions"))
     createStreamingContext()
 
     // set log level
