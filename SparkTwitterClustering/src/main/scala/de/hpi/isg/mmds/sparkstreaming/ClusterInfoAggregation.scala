@@ -24,7 +24,7 @@ object ClusterInfoAggregation {
 
     val clusterInfo: RDD[(Int, Cluster, Long)] = sc.objectFile("output/batch_clusterInfo/batch-*")
     clusterInfo
-        .sortBy(c => c._3 + c._1, ascending = true)
+        .sortBy( { case (clusterId, cluster, timestamp) => (timestamp, clusterId) }, ascending = true)
         .map{ case (clusterId, cluster, time) =>
           (clusterId, cluster.score.count, cluster.score.silhouette, cluster.score.intra, cluster.score.inter,
             cluster.representative.id, cluster.best_url, cluster.interesting, time, cluster.representative.content.text)
