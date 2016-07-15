@@ -22,7 +22,7 @@ object ClusterInfoAggregation {
     val directory = "output/merged_clusterInfo"
     FileUtils.deleteDirectory(new File(directory))
 
-    val clusterInfo: RDD[(Int, Cluster, Long)] = sc.objectFile("output/batch_clusterInfo/batch-*")
+    val clusterInfo: RDD[(Int, Cluster, Int)] = sc.objectFile("output/batch_clusterInfo/batch-*")
     clusterInfo
         .sortBy( { case (clusterId, cluster, timestamp) => (timestamp, clusterId) }, ascending = true)
         .map{ case (clusterId, cluster, time) =>
@@ -36,27 +36,21 @@ object ClusterInfoAggregation {
     val directory = "output/merged_tweets"
     FileUtils.deleteDirectory(new File(directory))
 
-    val clusterInfo: RDD[(Long, Int, Long, String)] = sc.objectFile("output/batch_tweets/batch-*")
+    val clusterInfo: RDD[(Int, Int, Long, String)] = sc.objectFile("output/batch_tweets/batch-*")
     clusterInfo
-      .sortBy(c => c._1 + c._2, ascending = true)
+      .sortBy({ case (batchId, clusterId, tweetId, text) => (batchId, clusterId) }, ascending = true)
       .saveAsTextFile(directory)
   }
 
   def writeClusterInfo(outputStream: DStream[(Int, Cluster)]) = {
     outputStream
-      .map{ case (clusterId, content) =>
-        val time : Long = System.currentTimeMillis / 1000
-        (content.fixed_id, content, time)
-      }
+      .transform(rdd => rdd.map { case (clusterId, content) => (content.fixed_id, content, rdd.id)})
       .saveAsObjectFiles("output/batch_clusterInfo/batch")
   }
 
   def writeTweets(outputStream: DStream[(Long, ((Int, TweetObj), Vector))], model: ExtendedStreamingKMeans) = {
     outputStream
-      .map{ case (tweetId, ((clusterId, tweet), vector)) =>
-        val time : Long = System.currentTimeMillis / 1000
-        (time, model.fixedId(clusterId), tweetId, tweet.text)
-      }
+      .transform(rdd => rdd.map { case (tweetId, ((clusterId, tweet), vector)) => (rdd.id, model.fixedId(clusterId), tweetId, tweet.text)})
       .saveAsObjectFiles("output/batch_tweets/batch")
   }
 }
