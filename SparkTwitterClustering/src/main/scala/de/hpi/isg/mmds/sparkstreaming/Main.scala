@@ -29,7 +29,7 @@ object Main {
 
     @Option(name = "-dimensions",
       usage = "dimensions for vectorization, default value 1000")
-    var vectorDimensions: Int = 1000
+    var vectorDimensions: Int = 100
 
     @Option(name = "-batchDuration",
       usage = "batch duration in seconds, default value 10")
@@ -42,6 +42,14 @@ object Main {
     @Option(name = "-runtime",
       usage = "print only runtimes, default true")
     var runtimeMeasurements: Boolean = false
+
+    @Option(name = "-addThreshold",
+      usage = "threshold distance for adding a new cluster, default value 50")
+    var addThreshold: Int = 50
+
+    @Option(name = "-mergeThreshold",
+      usage = "threshold distance for merging two new cluster, default value 25")
+    var mergeThreshold: Int = 25
   }
 
   def main(args: Array[String]): Unit = {

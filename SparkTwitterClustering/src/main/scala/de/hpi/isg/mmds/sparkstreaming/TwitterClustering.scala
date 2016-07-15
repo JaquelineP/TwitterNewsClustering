@@ -32,6 +32,8 @@ case class TwitterClustering(args: Main.MainArgs.type) {
       .setK(1)
       .setDecayFactor(args.forgetfulness)
       .setInitialCenters(Array.fill(1)(Vectors.dense(Array.fill(args.vectorDimensions)(-1.0))), Array.fill(1)(0.0))
+      .setAddThreshold(args.addThreshold)
+      .setMergeThreshold(args.mergeThreshold)
   }
 
   def preprocessTweets(tweetIdTextStream: DStream[Tweet]) = {
