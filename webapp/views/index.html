@@ -27,7 +27,7 @@
             <td rowspan="6" style="border-bottom:1pt solid black;" class="first"><%= clusters[i][0]['id'] %></td>
             <td class="first"> Count </td>
             <% for(var j=0; j<clusters[i].length; j++) {%>
-              <td> <%= clusters[i][j]['count'] %></td>
+              <td> <a href=<%=clusters[i][j]['id'] + '/' + clusters[i][j]['batch_time']%>><%= clusters[i][j]['count'] %></a></td>
             <% } %>
           </tr>
           <tr>

@@ -9,25 +9,56 @@ app.set('view engine', 'html');
 app.engine('html', ejs.renderFile);
 app.use(express.static(path.join(__dirname, 'public')));
 
-function readData() {
+var path = '../SparkTwitterClustering/output/'
+var times = []
 
-    // get filenames
-    var path = '../SparkTwitterClustering/output/merged_clusterInfo'
+function save(object) {
+    fs.writeFile("test", JSON.stringify(object), function(err) {
+        if(err) {
+            return console.log(err);
+        }
+
+        console.log("The file was saved!");
+    });
+}
+
+function getFilenames(path) {
     var filenames = fs.readdirSync(path);
     filenames = filenames.filter(function(e){
         // startwith
         return e.lastIndexOf('part-', 0) === 0
     });
+    return filenames.map(function(name) {
+        return path + '/' + name
+    })
+}
 
+function groupBy( array , f ) {
+  var groups = {};
+  array.forEach( function( o )
+  {
+    var group = JSON.stringify( f(o) );
+    groups[group] = groups[group] || [];
+    groups[group].push( o );
+  });
+  return Object.keys(groups).map( function( group )
+  {
+    return groups[group];
+  })
+}
+
+function readData() {
+
+    // get filenames
+    var filenames = getFilenames(path + 'merged_clusterInfo')
     var lines = []
-    var times = []
+
     // for each filename
-    for (index in filenames){
-        var filename = path + '/' + filenames[index]
+    filenames.forEach(function(filename) {
         var array = fs.readFileSync(filename).toString().split(")\n");
         if (array.length == 1) {
-            console.log("empty file "+ filenames[index])
-            continue;
+            console.log("empty file "+ filename)
+            return;
         }
         array.forEach(function(line) {
 
@@ -38,10 +69,17 @@ function readData() {
             var time = parseInt(lineArray[8])
 
             var contains = false
-            times.forEach(function(ea) {
-                if (ea === time) contains = true
+            var timeIndex = -1
+            times.forEach(function(ea, index) {
+                if (ea === time) {
+                    contains = true
+                    timeIndex = index
+                }
             })
-            if (!contains) times.push(time)
+            if (!contains) {
+                times.push(time)
+                timeIndex = times.length - 1
+            }
 
             var parsedLine = {
                 'id': lineArray[0],
@@ -53,27 +91,13 @@ function readData() {
                 'intra': lineArray[3],
                 'inter': lineArray[4],
                 'interesting' : lineArray[7] == 'true',
-                'batch_time' : time
+                'batch_time' : timeIndex
             }
             lines.push(parsedLine);
         });
-    }
+    })
 
     // group lines by clusterid
-    function groupBy( array , f ) {
-      var groups = {};
-      array.forEach( function( o )
-      {
-        var group = JSON.stringify( f(o) );
-        groups[group] = groups[group] || [];
-        groups[group].push( o );
-      });
-      return Object.keys(groups).map( function( group )
-      {
-        return groups[group];
-      })
-    }
-
     var result = groupBy(lines, function(item) {
       return [item.id];
     });
@@ -93,10 +117,10 @@ function readData() {
 
         var existingBatches = cluster.map(function(ea) {return ea.batch_time})
 
-        times.forEach(function(batch) {
+        times.forEach(function(batch, index) {
             var contains = false
             existingBatches.forEach(function(ea) {
-                if (ea == batch) contains = true
+                if (ea == index) contains = true
             });
             if (contains) return
             var empty = {
@@ -109,10 +133,10 @@ function readData() {
                 'intra': '',
                 'inter': '',
                 'interesting' : '',
-                'batch_time' : batch
+                'batch_time' : index
             }
             // for this time no batch exists -> add empty batch
-            empty.batch_time = batch
+            empty.batch_time = index
             cluster.push(empty)
         })
         return cluster.sort(function(a, b){
@@ -121,9 +145,63 @@ function readData() {
     })
 }
 
+function readTweets() {
+
+    // get filenames
+    var filenames = getFilenames(path + 'merged_tweets')
+    var lines = []
+    var tweetTimes = []
+
+    // for each filename
+    filenames.forEach(function(filename) {
+        var array = fs.readFileSync(filename).toString().split(")\n");
+        if (array.length == 1) {
+            console.log("empty file "+ filename)
+            return;
+        }
+        array.forEach(function(line) {
+
+            // remove first char (
+            line = line.substring(1);
+            var lineArray = line.split(",")
+            if (lineArray.length < 4) return;
+            var time = parseInt(lineArray[0])
+
+            var contains = false
+            var timeIndex = -1
+            tweetTimes.forEach(function(ea, index) {
+                if (ea === time) {
+                    contains = true
+                    timeIndex = index
+                }
+            })
+            if (!contains) {
+                tweetTimes.push(time)
+                timeIndex = tweetTimes.length - 1
+            }
+
+
+            var parsedTweet = {
+                'id': lineArray[1],
+                'tweetId' :  lineArray[2],
+                'batch_time' : timeIndex,
+                'text' :  lineArray[3]
+            }
+            lines.push(parsedTweet);
+        });
+    })
+
+    return groupBy(lines, function(item) {
+      return [item.id];
+    });
+
+}
+
+
 app.set('views', './views');
 app.set('view engine', 'jade');
 
+// add cluster table
 var clusters = readData()
 app.get('/index', function(req, res) {
     res.render('index.html', {
@@ -133,5 +211,26 @@ app.get('/index', function(req, res) {
         interesting: clusters.length
     });
 });
+
+// add detail pages foreach cluster and time
+var clusterIds = clusters.map(function(cluster) {
+    return cluster[0].id
+})
+var tweets = readTweets()
+clusterIds.forEach(function(clusterId) {
+    times.forEach(function(time, timeIndex) {
+        app.get('/' + clusterId + '/' + timeIndex, function(req, res) {
+            var c = tweets.filter(function(item) {
+                return item[0].id == clusterId
+            })[0]
+            var t = c.filter(function(item) {
+                return item.batch_time == timeIndex
+            })
+            res.render('clusterInfo.html', {
+                tweets: t
+            })
+        })
+    })
+})
 
 app.listen(3000);

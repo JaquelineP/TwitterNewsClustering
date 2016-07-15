@@ -14,6 +14,7 @@ import org.apache.spark.streaming.{Seconds, StreamingContext}
 import org.apache.spark.mllib.linalg.Vectors
 import HashAggregation.writeHashes
 import ClusterInfoAggregation.writeClusterInfo
+import ClusterInfoAggregation.writeTweets
 
 case class TwitterClustering(args: Main.MainArgs.type) {
 
@@ -153,6 +154,7 @@ case class TwitterClustering(args: Main.MainArgs.type) {
 
     FileUtils.deleteDirectory(new File("output/batch_clusterInfo"))
     FileUtils.deleteDirectory(new File("output/batch_collisions"))
+    FileUtils.deleteDirectory(new File("output/batch_tweets"))
     createStreamingContext()
 
     // set log level
@@ -172,6 +174,7 @@ case class TwitterClustering(args: Main.MainArgs.type) {
     val joinedStream = tweetIdClusterIdStream
       .join(tweetIdTextStream.map(tweet => (tweet.id, tweet.content)))
       .join(tweetIdVectorsStream)
+    writeTweets(joinedStream, this.model)
 
     // contains (clusterId, clusterContent)
     val clusterInfoStream = this.createClusterInfoStream(joinedStream)
