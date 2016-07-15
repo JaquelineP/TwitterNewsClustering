@@ -35,7 +35,7 @@ function readData() {
             line = line.substring(1);
             var lineArray = line.split(",")
             if (lineArray.length < 8) return;
-            var time = lineArray[8]
+            var time = parseInt(lineArray[8])
 
             var contains = false
             times.forEach(function(ea) {
@@ -91,32 +91,33 @@ function readData() {
     return result.map(function(cluster) {
         if (cluster.length == times.length) return cluster;
 
-        var empty = {
-            'id': cluster[0].id,
-            'count': 0,
-            'tweetId' : '',
-            'tweet': '',
-            'newsUrl': '',
-            'silhouette': '',
-            'intra': '',
-            'inter': '',
-            'interesting' : '',
-            'batch_time' : ''
-        }
-
         var existingBatches = cluster.map(function(ea) {return ea.batch_time})
+
         times.forEach(function(batch) {
             var contains = false
             existingBatches.forEach(function(ea) {
                 if (ea == batch) contains = true
             });
             if (contains) return
-
+            var empty = {
+                'id': cluster[0].id,
+                'count': 0,
+                'tweetId' : '',
+                'tweet': '',
+                'newsUrl': '',
+                'silhouette': '',
+                'intra': '',
+                'inter': '',
+                'interesting' : '',
+                'batch_time' : batch
+            }
             // for this time no batch exists -> add empty batch
-            empty.time = batch
+            empty.batch_time = batch
             cluster.push(empty)
         })
-        return cluster
+        return cluster.sort(function(a, b){
+            return a['batch_time'] - b['batch_time']
+        })
     })
 }
 
@@ -124,7 +125,6 @@ app.set('views', './views');
 app.set('view engine', 'jade');
 
 var clusters = readData()
-
 app.get('/index', function(req, res) {
     res.render('index.html', {
         // enter params for view here

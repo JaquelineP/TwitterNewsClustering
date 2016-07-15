@@ -16,9 +16,6 @@ object ClusterInfoAggregation {
   def aggregate() = {
     FileUtils.deleteDirectory(new File("output/merged_clusterInfo"))
 
-    // round to 2 decimals
-    def round(x: Double) = x - (x % 0.01)
-
     val conf = new SparkConf().setIfMissing("spark.master", "local[2]").setAppName("StreamingKMeansExample")
     val sc = new SparkContext(conf)
 
@@ -26,7 +23,7 @@ object ClusterInfoAggregation {
     clusterInfo
         .sortBy(c => c._3 + c._1, ascending = true)
         .map{ case (clusterId, cluster, time) =>
-          (clusterId, cluster.score.count, round(cluster.score.silhouette), round(cluster.score.intra), round(cluster.score.inter),
+          (clusterId, cluster.score.count, cluster.score.silhouette, cluster.score.intra, cluster.score.inter,
             cluster.representative.id, cluster.best_url, cluster.interesting, time, cluster.representative.content.text)
         }
       .saveAsTextFile("output/merged_clusterInfo")

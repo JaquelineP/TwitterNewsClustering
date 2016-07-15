@@ -98,7 +98,10 @@ case class TwitterClustering(args: Main.MainArgs.type) {
           // mark clusters with more than 2 tweets and silhouette >= 0 as interesting
           val interesting = (count >= 8) && (silhouette >= 0)
 
-          val cluster = new Cluster(new Score(count, silhouette, avgSqDist, neighborDistance), interesting, tweet, best_url, model.fixedId(clusterId))
+          def round(x :Double) = BigDecimal(x).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
+
+          val cluster = new Cluster(new Score(count, round(silhouette), round(avgSqDist), round(neighborDistance)),
+            interesting, tweet, best_url, model.fixedId(clusterId))
           (clusterId, cluster)
       }
 
