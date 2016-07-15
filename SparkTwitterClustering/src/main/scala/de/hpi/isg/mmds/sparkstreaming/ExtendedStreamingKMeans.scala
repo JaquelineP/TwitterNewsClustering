@@ -54,7 +54,7 @@ class ExtendedStreamingKMeans extends StreamingKMeans {
       distantVectors.foreach { vector =>
         var addNewCenter = true
         newCenters.foreach(center => addNewCenter &&= Vectors.sqdist(vector, center) > 50)
-        if (addNewCenter) newCenters +:= vector
+        if (addNewCenter) newCenters +:= vector.toDense
       }
       addCentroids(newCenters, Array.fill[Double](newCenters.length)(0.0))
     }
