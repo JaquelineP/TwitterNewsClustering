@@ -1,0 +1,18 @@
+<html>
+  <head>
+    <title> Detailinfo about one cluster on certain time </title>
+    <link href="css/custom.css" type="text/css" rel="stylesheet">
+    <link href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.datatables.net/1.10.12/css/jquery.dataTables.min.css" rel="stylesheet">
+
+
+  </head>
+  <body>
+    <div class="container">
+    <h1> Detailinfo about one cluster on certain time</h1>
+    <% for(var j=0; j<tweets.length; j++) {%>
+                <p> <%= tweets[j]['text'] %></p>
+              <% } %>
+    </div>
+  </body>
+</html>

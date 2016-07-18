@@ -1,8 +1,11 @@
 package de.hpi.isg.mmds.sparkstreaming
 
+import java.io.File
+
 import breeze.linalg.max
 import de.hpi.isg.mmds.sparkstreaming.nlp.NLPPipeline
 import de.hpi.isg.mmds.sparkstreaming.twitter.TweetStream
+import org.apache.commons.io.FileUtils
 import org.apache.log4j.{Level, LogManager}
 import org.apache.spark.SparkConf
 import org.apache.spark.mllib.linalg._
@@ -11,6 +14,7 @@ import org.apache.spark.streaming.{Seconds, StreamingContext}
 import org.apache.spark.mllib.linalg.Vectors
 import HashAggregation.writeHashes
 import ClusterInfoAggregation.writeClusterInfo
+import ClusterInfoAggregation.writeTweets
 
 case class TwitterClustering(args: Main.MainArgs.type) {
 
@@ -28,6 +32,8 @@ case class TwitterClustering(args: Main.MainArgs.type) {
       .setK(1)
       .setDecayFactor(args.forgetfulness)
       .setInitialCenters(Array.fill(1)(Vectors.dense(Array.fill(args.vectorDimensions)(-1.0))), Array.fill(1)(0.0))
+      .setAddThreshold(args.addThreshold)
+      .setMergeThreshold(args.mergeThreshold)
   }
 
   def preprocessTweets(tweetIdTextStream: DStream[Tweet]) = {
@@ -95,7 +101,10 @@ case class TwitterClustering(args: Main.MainArgs.type) {
           // mark clusters with more than 2 tweets and silhouette >= 0 as interesting
           val interesting = (count >= 8) && (silhouette >= 0)
 
-          val cluster = new Cluster(new Score(count, silhouette, avgSqDist, neighborDistance), interesting, tweet, best_url, model.fixedId(clusterId))
+          def round(x :Double) = BigDecimal(x).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
+
+          val cluster = new Cluster(new Score(count, round(silhouette), round(avgSqDist), round(neighborDistance)),
+            interesting, tweet, best_url, model.fixedId(clusterId))
           (clusterId, cluster)
       }
 
@@ -145,6 +154,9 @@ case class TwitterClustering(args: Main.MainArgs.type) {
 
   def execute() {
 
+    FileUtils.deleteDirectory(new File("output/batch_clusterInfo"))
+    FileUtils.deleteDirectory(new File("output/batch_collisions"))
+    FileUtils.deleteDirectory(new File("output/batch_tweets"))
     createStreamingContext()
 
     // set log level
@@ -164,6 +176,7 @@ case class TwitterClustering(args: Main.MainArgs.type) {
     val joinedStream = tweetIdClusterIdStream
       .join(tweetIdTextStream.map(tweet => (tweet.id, tweet.content)))
       .join(tweetIdVectorsStream)
+    writeTweets(joinedStream, this.model)
 
     // contains (clusterId, clusterContent)
     val clusterInfoStream = this.createClusterInfoStream(joinedStream)

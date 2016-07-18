@@ -1,3 +1,17 @@
 tr.border_bottom td {
   border-bottom:1pt solid black;
 }
+
+td { 
+    min-width: 400px;
+    max-width: 400px;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+table tr td.first { 
+    min-width: 100px;
+    max-width: 100px;
+    overflow: hidden;
+    white-space: nowrap;
+}
