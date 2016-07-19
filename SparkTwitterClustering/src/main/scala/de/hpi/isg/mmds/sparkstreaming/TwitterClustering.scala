@@ -98,8 +98,8 @@ case class TwitterClustering(args: Main.MainArgs.type) {
               if (otherCenter != center) Vectors.sqdist(center, otherCenter) else Double.MaxValue))
           val silhouette = (neighborDistance - avgSqDist) / max(neighborDistance, avgSqDist)
 
-          // mark clusters with more than 2 tweets and silhouette >= 0 as interesting
-          val interesting = (count >= 8) && (silhouette >= 0)
+          // mark clusters with more than 8 tweets and silhouette >= 0.4 & <= 0.9 as interesting
+          val interesting = (count >= 8) && (silhouette >= 0.4) && (silhouette <= 0.9)
 
           def round(x :Double) = BigDecimal(x).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
 
@@ -127,6 +127,11 @@ case class TwitterClustering(args: Main.MainArgs.type) {
           .map { case (clusterId, cluster) => cluster.score.count * cluster.score.silhouette }
           .reduce(_+_)
 
+        val interesting = rdd
+          .filter{ case (clusterId, cluster) => cluster.interesting}
+          .count()
+
+
         val elapsed = (System.nanoTime - lastTime).toDouble / 1000000000
         lastTime = System.nanoTime
         if (args.runtimeMeasurements) {
@@ -136,9 +141,10 @@ case class TwitterClustering(args: Main.MainArgs.type) {
           println(s"New batch: $batchSize tweets")
           println(f"Processing time: $elapsed%.2fs")
           println(s"Cluster count: ${model.k}")
+          println(s"interesting: $interesting")
           println(f"Average silhouette: ${totalSilhouette / batchSize}%.2f")
 
-          rdd.foreach {
+          /*rdd.foreach {
             case (clusterId, cluster) =>
               val score = cluster.score
               val tweet = cluster.representative
@@ -146,7 +152,7 @@ case class TwitterClustering(args: Main.MainArgs.type) {
               println(s"clusterId: ${cluster.fixed_id} count: ${score.count}, silhouette: ${score.silhouette}, " +
                 s"intra-distance: ${score.intra}, inter-distance: ${score.inter}, " +
                 s"representative: ${tweet.id}, interesting: ${cluster.interesting}, url: $url")
-          }
+          }*/
         }
       } else if (args.runtimeMeasurements) System.exit(0)
     })

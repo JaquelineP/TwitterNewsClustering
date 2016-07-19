@@ -70,6 +70,7 @@ class ExtendedStreamingKMeans extends StreamingKMeans {
         newCenters.foreach(center => addNewCenter &&= Vectors.sqdist(vector, center) >= addThreshold)
         if (addNewCenter) newCenters +:= vector.toDense
       }
+      println(s"new centers: ${newCenters.length}")
       addCentroids(newCenters, Array.fill[Double](newCenters.length)(0.0))
     }
   }

@@ -74,7 +74,11 @@ config.txt
 
 SparkTwitterClustering/src/main/resources/twitter.dat
 SparkTwitterClustering/output/
+SparkTwitterClustering/local-maven-repo/
 
 # node_modules of website
 /webapp/node_modules/
 SparkTwitterClustering/preparedTweets_*
+
+# log4j
+SparkTwitterClustering/log4j.properties
