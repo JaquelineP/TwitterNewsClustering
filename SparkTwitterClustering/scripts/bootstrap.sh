@@ -51,5 +51,5 @@ echo "PATH: $PATH"
 ###################
 # Copy data to HDFS
 ##################
-hadoop fs -put twitter.data hdfs:///twitter.dat
+hadoop fs -put twitter.dat hdfs:///twitter.dat
 
