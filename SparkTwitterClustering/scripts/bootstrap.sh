@@ -3,6 +3,16 @@
 #########################
 sudo yum install git tmux zsh 
 
+################
+# configure tmux
+#################
+#!/bin/bash
+touch ~/.tmux.conf
+echo "setw -g mode-mouse on" >> ~/.tmux.conf
+echo "set -g mouse-select-pane on" >> ~/.tmux.conf
+echo "set -g mouse-select-window on" >> ~/.tmux.conf
+echo "set-option -g history-limit 3000" >> ~/.tmux.conf
+
 ##################
 # install oh-my-zsh
 ###################
