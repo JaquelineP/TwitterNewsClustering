@@ -15,6 +15,7 @@ import org.apache.spark.mllib.linalg.Vectors
 import HashAggregation.writeHashes
 import ClusterInfoAggregation.writeClusterInfo
 import ClusterInfoAggregation.writeTweets
+import org.apache.spark.mllib.clustering.KMeans
 
 case class TwitterClustering(args: Main.MainArgs.type) {
 
@@ -31,7 +32,7 @@ case class TwitterClustering(args: Main.MainArgs.type) {
     model = new ExtendedStreamingKMeans()
       .setK(1)
       .setDecayFactor(args.forgetfulness)
-      .setInitialCenters(Array.fill(1)(Vectors.dense(Array.fill(args.vectorDimensions)(-1.0))), Array.fill(1)(0.0))
+      .setInitialCenters(Array.fill(1)(Vectors.dense(Array.fill(args.vectorDimensions)(100.0))), Array.fill(1)(0.0))
       .setAddThreshold(args.addThreshold)
       .setMergeThreshold(args.mergeThreshold)
   }
@@ -60,50 +61,63 @@ case class TwitterClustering(args: Main.MainArgs.type) {
     tweetIdVectorsStream.map { case (id, vector) => (id, model.latestModel.predict(vector)) }
   }
 
-  def createClusterInfoStream(joinedStream: DStream[(Long, ((Int, TweetObj), Vector))]) = {
+  def createClusterInfoStream(joinedStream: DStream[(Long, ((Int, TweetObj), Vector))], neighborStream: DStream[(Int, Int)]) = {
     val model = this.model
 
     joinedStream
 
       // add squared distances
       .map {
-        case (tweetId, ((clusterId, tweetObj), vector)) =>
-          val center = model.latestModel().clusterCenters(clusterId)
-          (clusterId, (1, Vectors.sqdist(vector, center), new Tweet(tweetId, tweetObj), Array[String]()))
+      case (tweetId, ((clusterId, tweetObj), vector)) =>
+        val center = model.latestModel().clusterCenters(clusterId)
+        val sum = KMeans.vectorSum(vector)
+        (clusterId, (1, vector, sum, VectorUtils.scaledDist(vector, center, sum), new Tweet(tweetId, tweetObj), Array[String]()))
+    }
+
+      // add neighbor
+      .join(neighborStream)
+      .map {
+        case (clusterId, ((count, vector, sum, sqDist, tweet, urls), neighbor)) =>
+          val center = model.latestModel().clusterCenters(neighbor)
+          (clusterId, (count, sqDist, tweet, urls, VectorUtils.scaledDist(vector, center, sum)))
       }
 
       .reduceByKey {
-        case ((countA, sqDistA, tweetA, urlsA), (countB, sqDistB, tweetB, urlsB)) => (
+        case ((countA, sqDistA, tweetA, urlsA, neighborDistA), (countB, sqDistB, tweetB, urlsB, neighborDistB)) => (
           countA + countB,
           sqDistA + sqDistB,
           if (sqDistA >= sqDistB) tweetB else tweetA,
-          tweetA.content.urls ++ tweetA.content.urls
-        )
+          tweetA.content.urls ++ tweetA.content.urls,
+          neighborDistA + neighborDistB
+          )
       }
 
       .map {
-        case (clusterId, (count, distanceSum, tweet, urls)) =>
+        case (clusterId, (count, distanceSum, tweet, urls, neighborDistanceSum)) =>
           // determine most frequently occurring url
           val urlGroups = urls.groupBy(identity).mapValues(_.length)
           val best_url = if (urlGroups.isEmpty) "none" else urlGroups.maxBy{case (url, occurrences) => occurrences}._1
 
           // calculate average distance to center from sum of distances and count
           val avgSqDist = distanceSum / count
+          val avgNeighborDist = neighborDistanceSum / count
 
           // calculate "kind-of" silhouette for every cluster
-          val center = model.latestModel().clusterCenters(clusterId)
-          // calculate distance to all other cluster centers, and choose lowest
-          val neighborDistance = Vectors.sqdist(center,
-            model.latestModel.clusterCenters.minBy(otherCenter =>
-              if (otherCenter != center) Vectors.sqdist(center, otherCenter) else Double.MaxValue))
-          val silhouette = (neighborDistance - avgSqDist) / max(neighborDistance, avgSqDist)
+          val silhouette = (avgNeighborDist - avgSqDist) / max(avgNeighborDist, avgSqDist)
 
-          // mark clusters with more than 8 tweets and silhouette >= 0.4 & <= 0.9 as interesting
-          val interesting = (count >= 8) && (silhouette >= 0.4) && (silhouette <= 0.9)
+          // mark clusters with more than 8 tweets and silhouette >= 0.4 & <= 0.95 as interesting
+          val interesting = (count >= 8) && (silhouette >= 0.4) && (silhouette <= 0.95)
 
-          def round(x :Double) = BigDecimal(x).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
+          def round(x :Double) = {
+            try {
+              BigDecimal(x).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
+            } catch {
+              case e: Exception =>
+                0.0
+            }
+          }
 
-          val cluster = new Cluster(new Score(count, round(silhouette), round(avgSqDist), round(neighborDistance)),
+          val cluster = new Cluster(new Score(count, round(silhouette), round(avgSqDist), round(avgNeighborDist)),
             interesting, tweet, best_url, model.fixedId(clusterId))
           (clusterId, cluster)
       }
@@ -184,8 +198,21 @@ case class TwitterClustering(args: Main.MainArgs.type) {
       .join(tweetIdVectorsStream)
     writeTweets(joinedStream, this.model)
 
+    val model = this.model
+    val clusterNeighborStream = tweetIdClusterIdStream
+      .map { case (tweetId, clusterId) => (clusterId, tweetId) }
+      .reduceByKey { case (id1, id2) => id1 }
+      .map { case (clusterId, tweetId) =>
+        val center = model.latestModel.clusterCenters(clusterId)
+        val neighbor = model.latestModel.clusterCenters.zipWithIndex.minBy {
+          case (otherCenter, index) =>
+            if (otherCenter != center) Vectors.sqdist(center, otherCenter) else Double.MaxValue
+        }._2
+        (clusterId, neighbor)
+      }
+
     // contains (clusterId, clusterContent)
-    val clusterInfoStream = this.createClusterInfoStream(joinedStream)
+    val clusterInfoStream = this.createClusterInfoStream(joinedStream, clusterNeighborStream)
     writeClusterInfo(clusterInfoStream)
 
     this.outputClusterInfos(clusterInfoStream)

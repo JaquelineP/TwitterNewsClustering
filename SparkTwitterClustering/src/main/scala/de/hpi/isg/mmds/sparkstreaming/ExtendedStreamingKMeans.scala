@@ -1,6 +1,6 @@
 package de.hpi.isg.mmds.sparkstreaming
 
-import org.apache.spark.mllib.clustering.{StreamingKMeans, StreamingKMeansModel}
+import org.apache.spark.mllib.clustering.{KMeans, StreamingKMeans, StreamingKMeansModel}
 import org.apache.spark.mllib.linalg.{Vector, Vectors}
 import org.apache.spark.streaming.dstream.DStream
 
@@ -8,15 +8,15 @@ class ExtendedStreamingKMeans extends StreamingKMeans {
 
   private var ids = Array[Int]()
   private var maxId = -1
-  private var addThreshold = 50
-  private var mergeThreshold = 25
+  private var addThreshold = 2.2
+  private var mergeThreshold = 25.0
 
-  def setAddThreshold(threshold: Int): this.type = {
+  def setAddThreshold(threshold: Double): this.type = {
     this.addThreshold = threshold
     this
   }
 
-  def setMergeThreshold(threshold: Int): this.type = {
+  def setMergeThreshold(threshold: Double): this.type = {
     this.mergeThreshold = threshold
     this
   }
@@ -61,13 +61,14 @@ class ExtendedStreamingKMeans extends StreamingKMeans {
     data.foreachRDD { rdd =>
       val distantVectors = rdd.filter { (vector) =>
         val center = model.predict(vector)
-        Vectors.sqdist(vector, model.clusterCenters(center)) >= addThreshold
+        VectorUtils.scaledDist(vector, model.clusterCenters(center)) >= addThreshold
       }.collect()
 
       var newCenters = Array[Vector]()
       distantVectors.foreach { vector =>
+        val sum = KMeans.vectorSum(vector)
         var addNewCenter = true
-        newCenters.foreach(center => addNewCenter &&= Vectors.sqdist(vector, center) >= addThreshold)
+        newCenters.foreach(center => addNewCenter &&= VectorUtils.scaledDist(vector, center, sum) >= addThreshold)
         if (addNewCenter) newCenters +:= vector.toDense
       }
       println(s"new centers: ${newCenters.length}")
