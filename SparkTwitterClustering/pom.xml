@@ -108,6 +108,8 @@
         <repository>
             <id>SparkPackagesRepo</id>
             <url>http://dl.bintray.com/spark-packages/maven</url>
+        </repository>
+        <repository>
             <id>Adjusted mllib</id>
             <url>file://${basedir}/lib</url>
         </repository>
