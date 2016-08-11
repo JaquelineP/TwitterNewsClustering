@@ -84,7 +84,7 @@
         </dependency>
         <dependency>
             <groupId>org.apache.spark</groupId>
-            <artifactId>spark-mllib_2.10</artifactId>
+            <artifactId>spark-mllib_2.10_custom</artifactId>
             <version>1.6.1</version>
         </dependency>
         <dependency>
@@ -108,6 +108,8 @@
         <repository>
             <id>SparkPackagesRepo</id>
             <url>http://dl.bintray.com/spark-packages/maven</url>
+            <id>Adjusted mllib</id>
+            <url>file://${basedir}/lib</url>
         </repository>
     </repositories>
 
