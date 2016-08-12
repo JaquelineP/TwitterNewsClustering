@@ -47,7 +47,7 @@ Run "spark-submit --class de.hpi.isg.mmds.sparkstreaming.ClusterInfoAggregation 
 
 * Spark version: 1.6.1
 
-* Scala version: 2.10.1
+* Scala version: 2.10.5
 
 * Java version: 1.8
 
