@@ -7,13 +7,9 @@ object Main {
 
   object MainArgs {
 
-    @Option(name = "-input", required = true,
+    @Option(name = "-input",
       usage = "path to input file")
-    var inputPath: String = null
-
-    @Option(name = "-k",
-      usage = "k parameter for K-Means")
-    var k: Int = 100
+    var inputPath: String = _
 
     @Option(name = "-decay",
       usage = "forgetfulness factor")

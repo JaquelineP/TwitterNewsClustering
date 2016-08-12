@@ -13,8 +13,9 @@ import scala.util.parsing.json.JSON
 
 object TweetStream {
 
-  var host: TwitterClustering = null
+  var host: TwitterClustering = _
 
+  // creates stream either from disk or from api, based on setting
   def create(host: TwitterClustering) = {
       this.host = host
       if (host.args.tweetSource == "disk") createFromDisk else createFromAPI
@@ -22,6 +23,7 @@ object TweetStream {
 
   def createFromAPI: DStream[Tweet] = {
 
+    // converts Status to TweetObj
     def getTextAndURLs(tweet: Status): TweetObj = {
       var text = tweet.getText
       var currentTweet = tweet
@@ -32,19 +34,18 @@ object TweetStream {
       new TweetObj(text, currentTweet.getURLEntities.map(u => u.getExpandedURL))
     }
 
-    // Twitter Authentication
+    // set up Twitter authentication
     TwitterAuthentication.readCredentials()
 
     val tweets = TwitterUtils.createStream(host.ssc, None, TwitterFilterArray.getFilterArray)
+    // remove non-English tweets
     val englishTweets = tweets.filter(_.getLang == "en")
-    englishTweets.map { case tweet =>
-      new Tweet(tweet.getId, getTextAndURLs(tweet))
-    }
+    englishTweets.map(tweet => new Tweet(tweet.getId, getTextAndURLs(tweet)))
   }
 
   def createFromDisk: DStream[Tweet] = {
 
-    // return tuple with ID & TEXT from tweet as JSON string
+    // convert JSON to Tweet
     def tupleFromJSONString(tweet: String) = {
       val json = JSON.parseFull(tweet)
       val urlString = json.get.asInstanceOf[Map[String, Any]]("urls").asInstanceOf[String]
@@ -59,10 +60,10 @@ object TweetStream {
     if (!host.args.runtimeMeasurements) println(s"Preparing $maxBatchCount batches.")
     var tweetTuples : Array[Tweet] = null
 
+    // load prepared object file if possible, otherwise generate tweet objects and save to disk for future calls
     val filename = "preparedTweets_" + host.args.tweetsPerBatch + "_" +  host.args.maxBatchCount
     val f = new File(filename)
     if (f.exists() && !f.isDirectory) {
-      // load from disk
       if (!host.args.runtimeMeasurements) println(s"Load prepared tweets from disk.")
       val inputStream = new ObjectInputStream(new FileInputStream(filename))
       tweetTuples = inputStream.readObject().asInstanceOf[Array[Tweet]]
@@ -70,14 +71,14 @@ object TweetStream {
       val rdd = host.ssc.sparkContext.textFile(host.args.inputPath)
       val tweets = rdd.take(host.args.tweetsPerBatch * host.args.maxBatchCount)
       tweetTuples = host.ssc.sparkContext.parallelize(tweets)
-        .map{case tweet =>
-          tupleFromJSONString(tweet)
-        }.collect()
+        .map(tweet => tupleFromJSONString(tweet))
+        .collect()
 
       // write tweetTuples to disk
       new ObjectOutputStream(new FileOutputStream(filename)).writeObject(tweetTuples)
     }
 
+    // group tweets and insert into queue
     val iterator = tweetTuples.grouped(host.args.tweetsPerBatch)
     while (iterator.hasNext) rddQueue.enqueue(host.ssc.sparkContext.makeRDD[Tweet](iterator.next()))
     if (!host.args.runtimeMeasurements) println("Finished preparing batches.")

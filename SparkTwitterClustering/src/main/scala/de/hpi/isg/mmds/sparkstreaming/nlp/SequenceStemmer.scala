@@ -5,6 +5,7 @@ import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions._
 import org.tartarus.snowball.SnowballStemmer
 
+// class to apply the snowball stemmer (that works on strings) on a sequence of strings
 class SequenceStemmer extends StopWordsRemover {
 
   val stemClass = Class.forName("org.tartarus.snowball.ext.englishStemmer")
@@ -23,7 +24,7 @@ class SequenceStemmer extends StopWordsRemover {
   override def transform(dataset: DataFrame): DataFrame = {
     val outputSchema = transformSchema(dataset.schema)
 
-    val t = udf { terms: Seq[String] => terms.map(stem(_)) }
+    val t = udf { terms: Seq[String] => terms.map(stem) }
 
     val metadata = outputSchema($(outputCol)).metadata
     dataset.select(col("*"), t(col($(inputCol))).as($(outputCol), metadata))

@@ -2,6 +2,7 @@ package de.hpi.isg.mmds.sparkstreaming.twitter
 
 object TwitterFilterArray {
 
+  // reads config files to determine filter string for Twitter API
   def getFilterArray: Array[String] = {
 
     var stream = getClass.getResourceAsStream("/domains.txt")

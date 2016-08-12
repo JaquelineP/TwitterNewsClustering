@@ -38,6 +38,8 @@ class ExtendedStreamingKMeans extends StreamingKMeans {
   def removeCentroids(centers: Array[Int], addWeights: Array[(Int, Double)] = Array.empty): this.type = {
     val updatedWeights = model.clusterWeights
     for ((id, weight) <- addWeights) { updatedWeights.update(id, updatedWeights(id) + weight) }
+
+    // filter out centers to be removed
     var newData = (model.clusterCenters, updatedWeights, ids)
       .zipped
       .toArray
@@ -45,6 +47,7 @@ class ExtendedStreamingKMeans extends StreamingKMeans {
       .filter { case (data, index) => !centers.contains(index) }
       .map { case (data, index) => data }
 
+    // there should always be at least one cluster
     if (newData.isEmpty) {
       maxId += 1
       newData = Array((Vectors.dense(Array.fill(model.clusterCenters(0).size)(-1.0)), 0.0, maxId))
@@ -59,11 +62,13 @@ class ExtendedStreamingKMeans extends StreamingKMeans {
 
   private def addClusters(data: DStream[Vector]): Unit = {
     data.foreachRDD { rdd =>
+      // gather all tweets that need a new centroid
       val distantVectors = rdd.filter { (vector) =>
         val center = model.predict(vector)
         VectorUtils.scaledDist(vector, model.clusterCenters(center)) >= addThreshold
       }.collect()
 
+      // determine which centroids to add (adding one for every candidate, unless one of the new ones already is good enough)
       var newCenters = Array[Vector]()
       distantVectors.foreach { vector =>
         val sum = KMeans.vectorSum(vector)
@@ -71,13 +76,13 @@ class ExtendedStreamingKMeans extends StreamingKMeans {
         newCenters.foreach(center => addNewCenter &&= VectorUtils.scaledDist(vector, center, sum) >= addThreshold)
         if (addNewCenter) newCenters +:= vector.toDense
       }
-      println(s"new centers: ${newCenters.length}")
       addCentroids(newCenters, Array.fill[Double](newCenters.length)(0.0))
     }
   }
 
   private def mergeClusters(data: DStream[Vector]): Unit = {
     data.foreachRDD { rdd =>
+      // generate pairs of clusters to be merged
       val centerRDD = rdd.sparkContext.parallelize(model.clusterCenters.zipWithIndex)
       val clustersToMerge = centerRDD
         .cartesian(centerRDD)
@@ -85,6 +90,7 @@ class ExtendedStreamingKMeans extends StreamingKMeans {
         .map { case ((vec1, index1), (vec2, index2)) => (index1, index2) }
         .collect()
 
+      // determine which clusters to delete; always delete smallest unless one of the two is already selected for deletion
       var clustersToDelete = Array[Int]()
       var addWeights = Array[(Int, Double)]()
       clustersToMerge.foreach { case (index1, index2) =>
@@ -104,6 +110,7 @@ class ExtendedStreamingKMeans extends StreamingKMeans {
 
   private def deleteOldClusters(data: DStream[Vector]): Unit = {
     data.foreachRDD { rdd =>
+      // find clusters that have a low enough weight to be deleted
       val clustersToDelete = rdd.sparkContext.parallelize(model.clusterWeights)
         .zipWithIndex
         .filter { case (weight, index) => weight < 1.0 }
@@ -124,6 +131,7 @@ class ExtendedStreamingKMeans extends StreamingKMeans {
     ids(id)
   }
 
+  // overridden because we need to maintain maxId
   override def setRandomCenters(dim: Int, weight: Double, seed: Long = -1): this.type = {
     ids = Array.range(maxId + 1, k + maxId + 1)
     maxId += k
@@ -133,6 +141,7 @@ class ExtendedStreamingKMeans extends StreamingKMeans {
       super.setRandomCenters(dim, weight, seed)
   }
 
+  // overridden because we need to maintain maxId
   override def setInitialCenters(centers: Array[Vector], weights: Array[Double]): this.type = {
     ids = Array.range(maxId + 1, centers.length + maxId + 1)
     maxId += centers.length
