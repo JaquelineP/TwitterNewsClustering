@@ -94,7 +94,7 @@
         </dependency>
         <dependency>
             <groupId>org.apache.spark</groupId>
-            <artifactId>spark-mllib_2.10_custom</artifactId>
+            <artifactId>spark-mllib_2.10</artifactId>
             <version>1.6.1</version>
         </dependency>
         <dependency>
