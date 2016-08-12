@@ -1,14 +1,14 @@
 #!/bin/bash
 cd ..
-mvn clean package
+#mvn clean package
 
-if [ -z "$1" ]; then
-	echo "usage: ./buildAndCopyToRemote.sh [remote_host]"
+if [[ -z "$1" || -z "$2" ]]; then
+	echo "usage: ./buildAndCopyToRemote.sh [path_to_key] [remote_host]"
 
 else
-	scp -i ~/.ssh/Amazon-HPI.pem target/SparkTwitterClustering-jar-with-dependencies.jar $1:~
-	scp -i ~/.ssh/Amazon-HPI.pem src/main/resources/twitter.dat $1:~
-	scp -i ~/.ssh/Amazon-HPI.pem utils/driver_bootstrap.sh $1:~
-	scp -i ~/.ssh/Amazon-HPI.pem utils/runOnCluster.sh $1:~
+	scp -i $1 target/SparkTwitterClustering-jar-with-dependencies.jar $2:~
+	scp -i $1 src/main/resources/twitter.dat $2:~
+	scp -i $1 utils/driver_bootstrap.sh $2:~
+	scp -i $1 utils/runOnCluster.sh $2:~
 fi
 
