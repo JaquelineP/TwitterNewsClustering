@@ -6,15 +6,13 @@ The goal of this project is to create a continuous feed of relevant world news, 
 
 ### **Generating the news feed**
 
-1. Build the jar using "mvn package"
+1. Build the jar using `mvn package`
 
-2. Start the clustering using "spark-submit --class de.hpi.isg.mmds.sparkstreaming.Main target\SparkTwitterClustering-jar-with-dependencies.jar" -source [source] -input [path]”
+2. Start the clustering with one of two modes:
 
-    1. [source] can either be "disk" (default), which uses the file specified by “input” as a source for tweets, or “api”, which retrieves tweets live from the API (requires "config.txt” as layed out in the previous section in the resources folder)
+    1. Using a pre-generated dump of tweets ([generate yourself](https://github.com/JaquelineP/TwitterNewsClustering/blob/master/gather-tweets/README.md), or use [this sample](https://drive.google.com/file/d/0B1M9c5rlifEmUDRwcllZU3Y5SWc/view?usp=sharing)): `spark-submit --class de.hpi.isg.mmds.sparkstreaming.Main target\SparkTwitterClustering-jar-with-dependencies.jar -input [path to twitter.dat]`
 
-    2. [path] is the path to the twitter.dat file (see previous section)
-
-    3. Other possible parameters are documented in "Main.scala"
+    2. Using live tweets from the API (requires config.txt ([see here](https://github.com/JaquelineP/TwitterNewsClustering/blob/master/gather-tweets/README.md) for format) in the resources folder): `spark-submit --class de.hpi.isg.mmds.sparkstreaming.Main target\SparkTwitterClustering-jar-with-dependencies.jar -source api`
 
 3. Results are printed to console, but can also be visualized (see next section)
 
@@ -26,14 +24,14 @@ To get an overview about the clustering results, we created a little webapp. The
 
 1. Create News Feed (see Generating the news feed)
 
-2. To start the web  application we first need aggregate clusterInfo from single batches:
-Run "spark-submit --class de.hpi.isg.mmds.sparkstreaming.ClusterInfoAggregation target\SparkTwitterClustering-jar-with-dependencies.jar"
+2. To start the web  application we first need to aggregate clusterInfo from single batches:
+Run `spark-submit --class de.hpi.isg.mmds.sparkstreaming.ClusterInfoAggregation target\SparkTwitterClustering-jar-with-dependencies.jar`
 
 3. Start webapp:
 
-    1. cd ..\webapp
+    1. `cd ..\webapp`
 
-    2. node server.js
+    2. `node server.js`
 
 4. Open browser: [http://localhost:3000/index](http://localhost:3000/index) 
 
