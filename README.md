@@ -6,10 +6,11 @@ The goal of this project is to create a continuous feed of relevant world news, 
 0. Set Up Amazon Cluster (Optional)
     * Upload [java8_bootstrap.sh](https://github.com/JaquelineP/TwitterNewsClustering/blob/master/SparkTwitterClustering/utils/java8_bootstrap.sh) to S3
     * Create [EMR](https://eu-central-1.console.aws.amazon.com/elasticmapreduce/home?region=eu-central-1) Cluster
+    	* click `'Go to advanced options'` 
     	* emr 4.7.1 with spark, hive, hadoop and ganglia
+    	* set java 8 as default by adding [configuration](https://raw.githubusercontent.com/JaquelineP/TwitterNewsClustering/master/SparkTwitterClustering/utils/clusterConfig.json) to `Edit software settings`
     	* machine type: `m3.xlarge`
-    	* number of instances: 11
-    	* set java 8 as default by adding [configuration]() to `Edit software settings`
+    	* number of worker instances: 10
     	* choose `java8_bootstrap.sh` as script in bootstrap actions
    
     * In the following, we describe how to run our application locally. The [automation scripts](https://github.com/JaquelineP/TwitterNewsClustering#automation-scripts) can be used though to run everything on the Amazon cluster.
@@ -38,11 +39,11 @@ The goal of this project is to create a continuous feed of relevant world news, 
 
 We have provided the following automation scripts in the folder `SparkTwitterClustering/utils/`:
 
-1. `buildAndCopyToCluster.sh` 
+1. `buildAndCopyToRemote.sh` 
     * **actions**:
         *  build fat jar `SparkTwitterClustering-jar-with-dependencies.jar` on local machine 
         *  copy `SparkTwitterClustering-jar-with-dependencies.jar`, `runOnCluster.sh`, `driver_bootstrap.sh` and `twitter.dat` to remote server which is referenced by `MASTER_PUBLIC_DNS`.
-    * **command**: `./buildAndCopyToCluster.sh [MASTER_PUBLIC_DNS]`
+    * **command**: `./buildAndCopyToRemote.sh [MASTER_PUBLIC_DNS]`
     * **execution machine**: local
 
 
