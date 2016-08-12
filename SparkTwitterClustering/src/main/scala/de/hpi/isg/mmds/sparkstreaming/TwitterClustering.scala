@@ -27,7 +27,6 @@ case class TwitterClustering(args: Main.MainArgs.type) {
     conf = new SparkConf()
       .setIfMissing("spark.master", "local[2]")
       .setAppName("StreamingKMeansExample")
-      .setJars(Seq(System.getProperty("user.dir") + "/target/SparkTwitterClustering-jar-with-dependencies.jar"))
     ssc = new StreamingContext(conf, Seconds(args.batchDuration))
   }
 
