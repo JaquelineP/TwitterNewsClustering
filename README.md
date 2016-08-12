@@ -51,25 +51,41 @@ Run `spark-submit --class de.hpi.isg.mmds.sparkstreaming.ClusterInfoAggregation 
 
 * [e.g. Amazon: cluster size, Cores]
 
-### **Run Scripts For Execution on Cluster**
+### **Automation Scripts**
 
-We have created some scripts which help to run the clustering on a server. All scripts can be found in SparkTwitterClustering/scripts/
+We have provided the following automation scripts in the folder `SparkTwitterClustering/scripts/`:
 
-1. run buildAndCopyToCluster MASTER_PUBLIC_DNS
+1. `buildAndCopyToCluster.sh` 
+    * **actions**:
+        *  build fat jar `SparkTwitterClustering-jar-with-dependencies.jar` on local machine 
+        *  copy `SparkTwitterClustering-jar-with-dependencies.jar`, `runOnCluster.sh`, `driver_bootstrap.sh` and `twitter.dat` to remote server which is referenced by `MASTER_PUBLIC_DNS`.
+    * **command**: `./buildAndCopyToCluster.sh [MASTER_PUBLIC_DNS]`
+    * **execution machine**: local
 
-    1. This builds the Spark project using maven and then copies the jar with dependencies as well as the scripts and tweet data to the master node.
 
-2. Connect to master e.g. via ssh
+2. `driver_bootstrap.sh`
+    * **actions**:
+        * install git, tmux, zsh, oh-my-zsh
+        * configure tmux
+        * copy twitter.dat to HDFS
+    * **command**: `./driver_bootstrap.sh`
+    * **execution machine**: remote cluster driver
 
-3. On master node: run bootstrap
 
-    2. This copies the Twitter data to the HDFS and installs Java 8 and some other helpful tools (e.g. tmux, git, zsh)
+3. `java8_bootstrap.sh`
+    * **actions**:
+        * install java 8 and set up JAVA_HOME accordingly
+    * **command**: --- supplied during cluster creation
+    * **execution machine**: all cluster nodes
 
-4. run runOnCluster
+4. `runOnCluster.sh`
+    * **actions**:
+        * run spark job with different batch sizes, number of executors, number of cores
+        * save results in `runtime.csv`
+    * **command**: `./runOnCluster.sh`
+    * **execution machine**: remote cluster drive
 
-    3. This finally executes the clustering for multiple setups (different #executers, #cores and #batchsizes)
 
-    4. It saves the runtime in a csv file (runtime.csv)
 
 ## **Contributors**
 
