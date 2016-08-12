@@ -12,7 +12,7 @@ The goal of this project is to create a continuous feed of relevant world news, 
     	* set java 8 as default by adding [configuration]() to `Edit software settings`
     	* choose `java8_bootstrap.sh` as script in bootstrap actions
    
-In the following, we describe how to run our application locally. The [automation scripts](https://github.com/JaquelineP/TwitterNewsClustering#automation-scripts) can be used though to run everything on the Amazon cluster.
+    * In the following, we describe how to run our application locally. The [automation scripts](https://github.com/JaquelineP/TwitterNewsClustering#automation-scripts) can be used though to run everything on the Amazon cluster.
 
 1. Build Jar
     * `mvn clean package`
@@ -36,7 +36,7 @@ In the following, we describe how to run our application locally. The [automatio
 
 ## **Automation Scripts**
 
-We have provided the following automation scripts in the folder `SparkTwitterClustering/scripts/`:
+We have provided the following automation scripts in the folder `SparkTwitterClustering/utils/`:
 
 1. `buildAndCopyToCluster.sh` 
     * **actions**:
