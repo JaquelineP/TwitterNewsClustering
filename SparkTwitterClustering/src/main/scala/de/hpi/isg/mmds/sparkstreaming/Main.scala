@@ -17,7 +17,7 @@ object Main {
 
     @Option(name = "-tweetsPerBatch",
       usage = "amount of tweets per batch")
-    var tweetsPerBatch: Int = 100
+    var tweetsPerBatch: Int = 5000
 
     @Option(name = "-maxBatchCount",
       usage = "amount of batches that are prepared, default value 10")
@@ -29,7 +29,7 @@ object Main {
 
     @Option(name = "-batchDuration",
       usage = "batch duration in seconds, default value 10")
-    var batchDuration: Int = 10
+    var batchDuration: Int = 120
 
     @Option(name = "-source",
       usage = "source for tweets, either 'disk' (default) or 'api'")
