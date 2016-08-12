@@ -17,7 +17,7 @@ do
 			echo "Run with $node nodes and batch size $batchSize"
 			echo "$node," >> runtime.csv
 			spark-submit --class de.hpi.isg.mmds.sparkstreaming.Main \
-			--driver-memory 4g --executor-memory 2g --total-executor-cores $node --num-executors $node \
+			--total-executor-cores $node --num-executors $node \
 			SparkTwitterClustering-jar-with-dependencies.jar \
 			-input hdfs:///twitter.dat \
 			-tweetsPerBatch $batchSize -maxBatchCount 10 -runtime  >> runtime.csv
