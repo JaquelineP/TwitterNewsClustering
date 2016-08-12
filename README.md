@@ -4,38 +4,6 @@ The goal of this project is to create a continuous feed of relevant world news, 
 
 ## **Project structure / features**
 
-### **Data collection (optional)**
-
-In order to be able to repeat the clustering on the same dataset, it can make sense to first gather a set of tweets for processing.
-
-1. Get Twitter API key
-
-    1. Create Twitter Account
-
-    2. Create Twitter Application ([https://apps.twitter.com/](https://apps.twitter.com/))
-
-    3. Create consumer key and secret
-
-    4. Save keys in gather-tweets/config.txt separated by line break in the following order:
-
-        1. consumer_key
-
-        2. consumer_secret
-
-        3. access_token
-
-        4. access_token_secret
-
-2. Run script: python parse_data.py
-
-    5. in folder gather-tweets
-
-    6. two new files are created containing the gathered tweets
-
-        5. twitter.dat: tweets in JSON-format
-
-        6. twitter.db: same tweets in sqlite database
-
 ### **Generating the news feed**
 
 1. Build the jar using "mvn package"
@@ -79,7 +47,7 @@ Run "spark-submit --class de.hpi.isg.mmds.sparkstreaming.ClusterInfoAggregation 
 
 * Spark version: 1.6.1
 
-* Scala version: 2.10.1
+* Scala version: 2.10.5
 
 * Java version: 1.8
 
@@ -112,22 +80,3 @@ We have created some scripts which help to run the clustering on a server. All s
 [Jaqueline Pollak](https://github.com/JaquelineP)
 
 [Benjamin Reißaus](https://github.com/BenReissaus)
-
-## **BSD License**
-
-Copyright (c) 2016, Daniel Neuschäfer-Rube, Benjamin Reißaus und Jaqueline Pollak
-
-All rights reserved.
-
-Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
-
-1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
-
-2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
-
-3. All advertising materials mentioning features or use of this software must display the following acknowledgement: This product includes software developed by Daniel Neuschäfer-Rube, Benjamin Reißaus und Jaqueline Pollak.
-
-4. The names of its contributors may not be used to endorse or promote products derived from this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY <COPYRIGHT HOLDER> ''AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL <COPYRIGHT HOLDER> BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
