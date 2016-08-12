@@ -81,4 +81,6 @@ SparkTwitterClustering/preparedTweets_*
 
 # log4j
 SparkTwitterClustering/log4j.properties
-SparkTwitterClustering/spark-mllib_2.10_custom-1.6.1/
+SparkTwitterClustering/spark-mllib_2.10-1.6.1/
+SparkTwitterClustering/output.txt
+SparkTwitterClustering/dependency-reduced-pom.xml
