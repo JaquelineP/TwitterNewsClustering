@@ -32,7 +32,7 @@ The goal of this project is to create a continuous feed of relevant world news, 
 3. Merge Clustering Results
 	* `spark-submit --class de.hpi.isg.mmds.sparkstreaming.ClusterInfoAggregation target\SparkTwitterClustering-jar-with-dependencies.jar`
 	
-4. Visualize Clustering Results
+4. Visualize Clustering Results ([Details](https://github.com/JaquelineP/TwitterNewsClustering/tree/master/webapp))
     * install node
     * install node packages in `webapp` folder: `npm install`
 	* run webserver: `node /webapp/server.js`
