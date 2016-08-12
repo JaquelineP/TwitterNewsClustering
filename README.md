@@ -16,30 +16,27 @@ The goal of this project is to create a continuous feed of relevant world news, 
 
 3. Results are printed to console, but can also be visualized (see next section)
 
-### **Visualization of the clustering**
+## **How to run**
 
-![image alt text](https://raw.githubusercontent.com/JaquelineP/TwitterTextMining/master/slides/images/webapp.png)
+1. Build Jar
+    * `mvn clean package`
 
-To get an overview about the clustering results, we created a little webapp. The webpage shows for every cluster (y-axis) and every batch (x-axis) the amount of tweets, a representative tweet and some evaluation scores (e.g. silhouette). 
+2. Run Clustering:
 
-1. Create News Feed (see Generating the news feed)
+    * Cluster tweets from file ([generate yourself](https://github.com/JaquelineP/TwitterNewsClustering/blob/master/gather-tweets/README.md), or use [this sample](https://drive.google.com/file/d/0B1M9c5rlifEmUDRwcllZU3Y5SWc/view?usp=sharing)): 
+        * `spark-submit --class de.hpi.isg.mmds.sparkstreaming.Main target\SparkTwitterClustering-jar-with-dependencies.jar -input [path to twitter.dat]`
 
-2. To start the web  application we first need to aggregate clusterInfo from single batches:
-Run `spark-submit --class de.hpi.isg.mmds.sparkstreaming.ClusterInfoAggregation target\SparkTwitterClustering-jar-with-dependencies.jar`
+    * Cluster tweets from Twitter API (requires [config.txt](https://github.com/JaquelineP/TwitterNewsClustering/blob/master/gather-tweets/README.md) in resources folder): 
+        * `spark-submit --class de.hpi.isg.mmds.sparkstreaming.Main target\SparkTwitterClustering-jar-with-dependencies.jar -source api`
 
-3. Start webapp:
-
-    1. `cd ..\webapp`
-
-    2. `node server.js`
-
-4. Open browser: [http://localhost:3000/index](http://localhost:3000/index) 
-
-5. To get a detailed info about all clusters which are in a certain cluster a certain batch, you can click on the cluster count or type: [http://localhost:3000/1663/0](http://localhost:3000/1663/0)
-
-    3. The first number is the cluster id (e.g. 1663)
-
-    4. The second number is the batch id starting with 0. 
+3. Merge Clustering Results
+	* `spark-submit --class de.hpi.isg.mmds.sparkstreaming.ClusterInfoAggregation target\SparkTwitterClustering-jar-with-dependencies.jar`
+	
+4. Visualize Clustering Results
+    * install node
+    * install node packages in `webapp` folder: `npm install`
+	* run webserver: `node /webapp/server.js`
+	* open browser: [http://localhost:3000/index](http://localhost:3000/index)
 
 ## **Cluster**
 
